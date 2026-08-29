@@ -56,6 +56,9 @@ struct bf_handle
      * per rule. NULL if the chain has no logging rules. */
     struct bf_map *smap;
 
+    /** Rate limit map. NULL if not created. */
+    struct bf_map *rmap;
+
     /** List of set maps. Contains at most one map for each unique key
      * format. */
     bf_list sets;

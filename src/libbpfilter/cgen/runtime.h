@@ -185,5 +185,18 @@ struct bf_runtime
 static_assert(sizeof(struct bf_runtime) % 8 == 0,
               "bf_runtime should be aligned to 8 bytes");
 
+/**
+ * @brief Keep timestamps to allow for rate limiting
+ *
+ */
+struct bf_ratelimit
+{
+    /** Current timestamp (at the last call of the BPF) */
+    __u64 current;
+
+    /** Last time the rate limit was reset */
+    __u64 last_time;
+};
+
 extern void *bpf_dynptr_slice(const struct bpf_dynptr *, __u32, void *, __u32);
 extern int bpf_dynptr_from_xdp(struct xdp_md *, __u64, struct bpf_dynptr *);

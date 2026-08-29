@@ -48,7 +48,7 @@ extern const char *inet_ntop(int, const void *, char *, socklen_t);
 /**
  * Matcher definition.
  *
- * Matchers are criterias to match the packet against. A set of matcher defines
+ * Matchers are criterias to match the packet against. A set of bf_matcher_limit defines
  * what a rule should match on.
  *
  * @todo `bf_matcher`'s payload should be a union of all the possible payload
@@ -407,6 +407,41 @@ static void _bf_print_probability(const void *payload)
         (void)fprintf(stdout, "%.0f%%", proba);
     else
         (void)fprintf(stdout, "%g%%", proba);
+}
+
+#define BF_TIME_S 1000000000
+
+static int _bf_parse_limit(enum bf_matcher_type type, enum bf_matcher_op op,
+                           void *payload, const char *raw_payload)
+{
+    assert(payload);
+    assert(raw_payload);
+
+    uint32_t limit;
+    char *endptr;
+
+    (void)op;
+
+    limit = strtoul(raw_payload, &endptr, BF_BASE_10);
+    if (endptr[0] == '/' && endptr[1] == 's' && limit > 0 &&
+        limit <= UINT32_MAX) {
+        *(uint64_t *)payload = (limit + ((uint64_t)BF_TIME_S << 32));
+        return 0;
+    }
+
+    bf_err(
+        "\"%s\" expect a number and a time unit (the only time unit as of now is 's', e.g., 20/s), not '%s'",
+        bf_matcher_type_to_str(type), raw_payload);
+
+    return -EINVAL;
+}
+
+static void _bf_print_limit(const void *payload)
+{
+    assert(payload);
+
+    if (*(uint64_t *)payload >> 32 == BF_TIME_S)
+        (void)fprintf(stdout, "%d/s", *(uint32_t *)payload);
 }
 
 static int _bf_parse_mark(enum bf_matcher_type type, enum bf_matcher_op op,
@@ -1000,6 +1035,15 @@ static struct bf_matcher_meta _bf_matcher_metas[_BF_MATCHER_TYPE_MAX] = {
                                    _bf_parse_pid, _bf_print_pid),
                     BF_MATCHER_OPS(BF_MATCHER_IN, sizeof(uint32_t),
                                    _bf_parse_pid, _bf_print_pid),
+                },
+        },
+    [BF_MATCHER_META_LIMIT] =
+        {
+            .layer = BF_MATCHER_NO_LAYER,
+            .ops =
+                {
+                    BF_MATCHER_OPS(BF_MATCHER_EQ, sizeof(uint64_t),
+                                   _bf_parse_limit, _bf_print_limit),
                 },
         },
     [BF_MATCHER_IP4_SADDR] =
@@ -1768,6 +1812,7 @@ static const char *_bf_matcher_type_strs[] = {
     [BF_MATCHER_META_MARK] = "meta.mark",
     [BF_MATCHER_META_FLOW_HASH] = "meta.flow_hash",
     [BF_MATCHER_META_FLOW_PROBABILITY] = "meta.flow_probability",
+    [BF_MATCHER_META_LIMIT] = "meta.limit",
     [BF_MATCHER_IP4_SADDR] = "ip4.saddr",
     [BF_MATCHER_IP4_SNET] = "ip4.snet",
     [BF_MATCHER_IP4_DADDR] = "ip4.daddr",

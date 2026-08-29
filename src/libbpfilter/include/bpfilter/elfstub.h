@@ -186,6 +186,21 @@ enum bf_elfstub_id
      */
     BF_ELFSTUB_PKT_5_TUPLE_LOG,
 
+    /** 
+     * Check if `limit` packets have already been seen in the last unit of time
+     * 
+     * `__u8 bf_ratelimit(void *map, __u32 limit, __u32 duration, __u32 key)`
+     *
+     * **Parameters**
+     * - `map`: address of the rate limit map.
+     * - `limit`: number of packets allowed to pass in one unit of time.
+     * - `duration`: the amount of time to wait before resetting the rate limit.
+     * - `key`: key of the map rate limit map.
+     *
+     * **Return** 0 if in the allowed limit (inclusive), or 1 if over the limit.
+     */
+    BF_ELFSTUB_LIMIT,
+
     _BF_ELFSTUB_MAX,
 };
 

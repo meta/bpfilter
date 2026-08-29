@@ -119,6 +119,33 @@ _bf_matcher_generate_meta_flow_probability(struct bf_program *program,
     return 0;
 }
 
+static int _bf_matcher_generate_meta_limit(struct bf_program *program,
+                                           const struct bf_matcher *matcher)
+{
+    uint64_t tmp = *(uint64_t *)bf_matcher_payload(matcher);
+    uint32_t limit = tmp;
+    uint32_t letter = tmp >> 32;
+
+    static uint32_t key = -1;
+    key++;
+
+    EMIT_LOAD_LIMIT_FD_FIXUP(program, BPF_REG_1);
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_2, limit));
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_3, letter));
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_4, key));
+    EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_LIMIT);
+
+    if (bf_matcher_get_negate(matcher)) {
+        EMIT_FIXUP_JMP_NEXT_RULE(program,
+                                 BPF_JMP32_IMM(BPF_JEQ, BPF_REG_0, 0, 0));
+    } else {
+        EMIT_FIXUP_JMP_NEXT_RULE(program,
+                                 BPF_JMP32_IMM(BPF_JNE, BPF_REG_0, 0, 0));
+    }
+
+    return 0;
+}
+
 int bf_matcher_generate_meta(struct bf_program *program,
                              const struct bf_matcher *matcher)
 {
@@ -136,6 +163,8 @@ int bf_matcher_generate_meta(struct bf_program *program,
         return _bf_matcher_generate_meta_probability(program, matcher);
     case BF_MATCHER_META_FLOW_PROBABILITY:
         return _bf_matcher_generate_meta_flow_probability(program, matcher);
+    case BF_MATCHER_META_LIMIT:
+        return _bf_matcher_generate_meta_limit(program, matcher);
     case BF_MATCHER_META_PID:
     case BF_MATCHER_META_SPORT:
     case BF_MATCHER_META_DPORT:
