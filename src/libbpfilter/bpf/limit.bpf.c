@@ -13,10 +13,8 @@
 
 __u8 bf_ratelimit(void *map, const __u32 limit, __u32 duration, __u32 key)
 {
-    struct bf_ratelimit *ratelimit;
+    struct bf_ratelimit_data *ratelimit;
     __u64 current_time_ns = bpf_ktime_get_ns();
-
-    bpf_printk("%d, %d - %d", limit, duration, key);
 
     ratelimit = bpf_map_lookup_elem(map, &key);
     if (!ratelimit) {

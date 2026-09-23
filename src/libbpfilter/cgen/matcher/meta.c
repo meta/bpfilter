@@ -19,6 +19,8 @@
 #include <bpfilter/logger.h>
 #include <bpfilter/matcher.h>
 
+#include "bpfilter/core/list.h"
+#include "bpfilter/limit.h"
 #include "cgen/jmp.h"
 #include "cgen/matcher/cmp.h"
 #include "cgen/program.h"
@@ -122,12 +124,11 @@ _bf_matcher_generate_meta_flow_probability(struct bf_program *program,
 static int _bf_matcher_generate_meta_limit(struct bf_program *program,
                                            const struct bf_matcher *matcher)
 {
-    uint64_t tmp = *(uint64_t *)bf_matcher_payload(matcher);
-    uint32_t limit = tmp;
-    uint32_t letter = tmp >> 32;
-
-    static uint32_t key = -1;
-    key++;
+    uint32_t key = *(uint64_t *)bf_matcher_payload(matcher);
+    struct bf_ratelimit *node =
+        bf_list_get_at(&program->runtime.chain->limits, key);
+    uint32_t limit = node->limit;
+    uint32_t letter = node->duration;
 
     EMIT_LOAD_LIMIT_FD_FIXUP(program, BPF_REG_1);
     EMIT(program, BPF_MOV32_IMM(BPF_REG_2, limit));

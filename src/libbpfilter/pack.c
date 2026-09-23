@@ -184,8 +184,9 @@ void bf_wpack_list(bf_wpack_t *pack, const bf_list *value)
 
     bf_wpack_open_array(pack, NULL);
     r = bf_list_pack(value, pack);
-    if (r)
+    if (r) {
         mpack_writer_flag_error(&pack->writer, mpack_error_invalid);
+    }
     bf_wpack_close_array(pack);
 }
 

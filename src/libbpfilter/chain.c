@@ -15,6 +15,7 @@
 #include "bpfilter/dump.h"
 #include "bpfilter/helper.h"
 #include "bpfilter/hook.h"
+#include "bpfilter/limit.h"
 #include "bpfilter/logger.h"
 #include "bpfilter/matcher.h"
 #include "bpfilter/pack.h"
@@ -279,7 +280,8 @@ static int _bf_chain_validate_rules(struct bf_chain *chain)
 }
 
 int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
-                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules)
+                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules,
+                 bf_list *limits)
 {
     _free_bf_chain_ struct bf_chain *_chain = NULL;
     size_t ridx = 0;
@@ -325,6 +327,10 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
         rule->index = ridx++;
     }
 
+    _chain->limits = bf_list_default(bf_limit_free, bf_limit_pack);
+    if (limits)
+        _chain->limits = bf_list_move(*limits);
+
     r = _bf_chain_validate_rules(_chain);
     if (r) {
         if (rules)
@@ -348,6 +354,8 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
     bf_rpack_node_t array, array_node;
     _clean_bf_hashset_ bf_hashset sets = bf_set_hashset_default();
     _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
+    _clean_bf_list_ bf_list limits =
+        bf_list_default(bf_limit_free, bf_limit_pack);
     int r;
 
     r = bf_rpack_kv_str(node, "name", &name);
@@ -393,7 +401,20 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
         }
     }
 
-    r = bf_chain_new(&_chain, name, hook, policy, &sets, &rules);
+    r = bf_rpack_kv_array(node, "limits", &array);
+    if (r)
+        return bf_rpack_key_err(r, "bf_chain.limits");
+    bf_rpack_array_foreach (array, array_node) {
+        _free_bf_limit_ struct bf_ratelimit *limit = NULL;
+
+        r = bf_list_emplace(&limits, bf_limit_new_from_pack, limit, array_node);
+        if (r) {
+            return bf_err_r(
+                r, "failed to unpack bf_ratelimit into bf_chain.limits");
+        }
+    }
+
+    r = bf_chain_new(&_chain, name, hook, policy, &sets, &rules, &limits);
     if (r)
         return bf_err_r(r, "failed to create bf_chain from pack");
 
@@ -436,6 +457,7 @@ int bf_chain_pack(const struct bf_chain *chain, bf_wpack_t *pack)
     }
     bf_wpack_close_array(pack);
     bf_wpack_kv_list(pack, "rules", &chain->rules);
+    bf_wpack_kv_list(pack, "limits", &chain->limits);
 
     return bf_wpack_is_valid(pack) ? 0 : -EINVAL;
 }

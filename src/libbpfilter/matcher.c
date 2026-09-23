@@ -417,21 +417,20 @@ static int _bf_parse_limit(enum bf_matcher_type type, enum bf_matcher_op op,
     assert(payload);
     assert(raw_payload);
 
-    uint32_t limit;
+    uint32_t idx;
     char *endptr;
 
     (void)op;
 
-    limit = strtoul(raw_payload, &endptr, BF_BASE_10);
-    if (endptr[0] == '/' && endptr[1] == 's' && limit > 0 &&
-        limit <= UINT32_MAX) {
-        *(uint64_t *)payload = (limit + ((uint64_t)BF_TIME_S << 32));
+    errno = 0;
+    idx = strtoul(raw_payload, &endptr, BF_BASE_10);
+    if (errno == 0) {
+        *(uint32_t *)payload = idx;
         return 0;
     }
 
-    bf_err(
-        "\"%s\" expect a number and a time unit (the only time unit as of now is 's', e.g., 20/s), not '%s'",
-        bf_matcher_type_to_str(type), raw_payload);
+    bf_err("\"%s\" expects a valid index, not '%s'",
+           bf_matcher_type_to_str(type), raw_payload);
 
     return -EINVAL;
 }

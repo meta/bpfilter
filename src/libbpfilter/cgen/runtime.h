@@ -189,7 +189,7 @@ static_assert(sizeof(struct bf_runtime) % 8 == 0,
  * @brief Keep timestamps to allow for rate limiting
  *
  */
-struct bf_ratelimit
+struct bf_ratelimit_data
 {
     /** Current timestamp (at the last call of the BPF) */
     __u64 current;

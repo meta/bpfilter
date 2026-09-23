@@ -104,7 +104,7 @@ struct bf_chain *bft_chain_dummy(bool with_rules)
     int r;
 
     r = bf_chain_new(&chain, "bft_chain_dummy", BF_HOOK_TC_EGRESS,
-                     BF_VERDICT_ACCEPT, NULL, NULL);
+                     BF_VERDICT_ACCEPT, NULL, NULL, NULL);
     if (r)
         return NULL;
 
