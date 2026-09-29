@@ -10,6 +10,7 @@
 #include <linux/if_ether.h>
 #include <linux/in.h> // NOLINT
 
+#include <assert.h>
 #include <endian.h>
 #include <errno.h>
 #include <stddef.h>
@@ -124,15 +125,19 @@ _bf_matcher_generate_meta_flow_probability(struct bf_program *program,
 static int _bf_matcher_generate_meta_limit(struct bf_program *program,
                                            const struct bf_matcher *matcher)
 {
+    assert(program);
+    assert(matcher);
+
     uint32_t key = *(uint64_t *)bf_matcher_payload(matcher);
     struct bf_ratelimit *node =
         bf_list_get_at(&program->runtime.chain->limits, key);
+
     uint32_t limit = node->limit;
-    uint32_t letter = node->duration;
+    uint32_t duration = node->duration;
 
     EMIT_LOAD_LIMIT_FD_FIXUP(program, BPF_REG_1);
     EMIT(program, BPF_MOV32_IMM(BPF_REG_2, limit));
-    EMIT(program, BPF_MOV32_IMM(BPF_REG_3, letter));
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_3, duration));
     EMIT(program, BPF_MOV32_IMM(BPF_REG_4, key));
     EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_LIMIT);
 

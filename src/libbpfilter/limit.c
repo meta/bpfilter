@@ -121,15 +121,8 @@ int bf_limit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack)
     assert(ratelimit);
     assert(pack);
 
-    if (ratelimit->duration)
-        bf_wpack_kv_u32(pack, "duration", ratelimit->duration);
-    else
-        bf_wpack_kv_nil(pack, "duration");
-
-    if (ratelimit->limit)
-        bf_wpack_kv_u32(pack, "limit", ratelimit->limit);
-    else
-        bf_wpack_kv_nil(pack, "limit");
+    bf_wpack_kv_u32(pack, "duration", ratelimit->duration);
+    bf_wpack_kv_u32(pack, "limit", ratelimit->limit);
 
     return bf_wpack_is_valid(pack) ? 0 : -EINVAL;
 }

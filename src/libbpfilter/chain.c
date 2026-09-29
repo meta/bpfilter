@@ -321,6 +321,7 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
     _chain->rules = bf_list_default(bf_rule_free, bf_rule_pack);
     if (rules)
         _chain->rules = bf_list_move(rules);
+
     bf_list_foreach (&_chain->rules, rule_node) {
         struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
@@ -329,7 +330,7 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
 
     _chain->limits = bf_list_default(bf_limit_free, bf_limit_pack);
     if (limits)
-        _chain->limits = bf_list_move(*limits);
+        _chain->limits = bf_list_move(limits);
 
     r = _bf_chain_validate_rules(_chain);
     if (r) {

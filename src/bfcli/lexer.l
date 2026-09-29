@@ -205,7 +205,11 @@ meta\.pid           { BEGIN(STATE_MATCHER_META_PID); yylval.sval = strdup(yytext
     }
 }
 
-meta\.limit  { BEGIN(STATE_MATCHER_META_LIMIT); yylval.sval = strdup(yytext); return MATCHER_TYPE; }
+meta\.limit  {
+    BEGIN(STATE_MATCHER_META_LIMIT);
+    yylval.sval = strdup(yytext);
+    return MATCHER_META_LIMIT;
+}
 <STATE_MATCHER_META_LIMIT>{
     (eq) { yylval.sval = strdup(yytext); return MATCHER_OP; }
     {int}\/[a-zA-Z] {

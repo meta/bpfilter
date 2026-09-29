@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -407,40 +408,6 @@ static void _bf_print_probability(const void *payload)
         (void)fprintf(stdout, "%.0f%%", proba);
     else
         (void)fprintf(stdout, "%g%%", proba);
-}
-
-#define BF_TIME_S 1000000000
-
-static int _bf_parse_limit(enum bf_matcher_type type, enum bf_matcher_op op,
-                           void *payload, const char *raw_payload)
-{
-    assert(payload);
-    assert(raw_payload);
-
-    uint32_t idx;
-    char *endptr;
-
-    (void)op;
-
-    errno = 0;
-    idx = strtoul(raw_payload, &endptr, BF_BASE_10);
-    if (errno == 0) {
-        *(uint32_t *)payload = idx;
-        return 0;
-    }
-
-    bf_err("\"%s\" expects a valid index, not '%s'",
-           bf_matcher_type_to_str(type), raw_payload);
-
-    return -EINVAL;
-}
-
-static void _bf_print_limit(const void *payload)
-{
-    assert(payload);
-
-    if (*(uint64_t *)payload >> 32 == BF_TIME_S)
-        (void)fprintf(stdout, "%d/s", *(uint32_t *)payload);
 }
 
 static int _bf_parse_mark(enum bf_matcher_type type, enum bf_matcher_op op,
@@ -1039,11 +1006,6 @@ static struct bf_matcher_meta _bf_matcher_metas[_BF_MATCHER_TYPE_MAX] = {
     [BF_MATCHER_META_LIMIT] =
         {
             .layer = BF_MATCHER_NO_LAYER,
-            .ops =
-                {
-                    BF_MATCHER_OPS(BF_MATCHER_EQ, sizeof(uint64_t),
-                                   _bf_parse_limit, _bf_print_limit),
-                },
         },
     [BF_MATCHER_IP4_SADDR] =
         {

@@ -63,6 +63,8 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
 int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,
                            bf_rpack_node_t node);
 
+void bf_limit_free(struct bf_ratelimit **ratelimit);
+
 /**
  * @brief Serialize a ratelimit.
  *
@@ -71,5 +73,3 @@ int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,
  * @return 0 on success, or a negative error value on failure.
  */
 int bf_limit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack);
-
-void bf_limit_free(struct bf_ratelimit **ratelimit);
