@@ -128,9 +128,14 @@ static int _bf_matcher_generate_meta_limit(struct bf_program *program,
     assert(program);
     assert(matcher);
 
-    uint32_t key = *(uint64_t *)bf_matcher_payload(matcher);
+    uint32_t key = *(uint32_t *)bf_matcher_payload(matcher);
     struct bf_ratelimit *node =
         bf_list_get_at(&program->runtime.chain->limits, key);
+    if (!node) {
+        return bf_err_r(-EINVAL,
+                        "chain '%s' references non-existent rate limit",
+                        program->runtime.chain->name);
+    }
 
     uint32_t limit = node->limit;
     uint32_t duration = node->duration;

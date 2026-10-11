@@ -49,7 +49,7 @@ extern const char *inet_ntop(int, const void *, char *, socklen_t);
 /**
  * Matcher definition.
  *
- * Matchers are criterias to match the packet against. A set of bf_matcher_limit defines
+ * Matchers are criterias to match the packet against. A set of matcher defines
  * what a rule should match on.
  *
  * @todo `bf_matcher`'s payload should be a union of all the possible payload

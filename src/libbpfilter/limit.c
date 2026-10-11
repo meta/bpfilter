@@ -6,12 +6,7 @@
 #include "bpfilter/limit.h"
 
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
-#include "bpfilter/helper.h"
-#include "bpfilter/logger.h"
 #include "bpfilter/pack.h"
 
 int bf_limit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
@@ -37,29 +32,23 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
                           const char *raw_payload)
 {
     _free_bf_limit_ struct bf_ratelimit *_ratelimit = NULL;
-    _cleanup_free_ char *_raw_payload = NULL;
-
     char *endptr;
     uint32_t limit;
     uint32_t duration;
+    unsigned long parsed;
     int r;
 
     assert(ratelimit);
     assert(raw_payload);
 
-    limit = strtoul(raw_payload, &endptr, BF_BASE_10);
+    errno = 0;
+    parsed = strtoul(raw_payload, &endptr, BF_BASE_10);
+    if (errno != 0 || endptr[0] != '/' || endptr[1] != 's' ||
+        endptr[2] != '\0' || parsed > UINT32_MAX)
+        return bf_err_r(-EINVAL, "limit is not valid '%s'", raw_payload);
+    limit = (uint32_t)parsed;
 
-    if (endptr[0] != '/' || endptr[1] != 's' || limit <= 0 ||
-        limit > UINT32_MAX) {
-        return bf_err_r(-ENOMEM, "limit is not valid '%s'", raw_payload);
-    }
-
-    _raw_payload = strdup(raw_payload);
-    if (!_raw_payload)
-        return bf_err_r(-ENOMEM, "failed to copy set raw payload '%s'",
-                        raw_payload);
-
-    duration = (uint64_t)BF_TIME_S;
+    duration = (uint32_t)BF_TIME_S;
     r = bf_limit_new(&_ratelimit, limit, duration);
     if (r)
         return r;
@@ -71,7 +60,12 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
 
 void bf_limit_free(struct bf_ratelimit **ratelimit)
 {
-    (void)ratelimit;
+    assert(ratelimit);
+
+    if (!*ratelimit)
+        return;
+
+    BF_FREEP(ratelimit);
 }
 
 int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,

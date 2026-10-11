@@ -191,10 +191,10 @@ static_assert(sizeof(struct bf_runtime) % 8 == 0,
  */
 struct bf_ratelimit_data
 {
-    /** Current timestamp (at the last call of the BPF) */
+    /** Number of packets seen in the current rate-limit window. */
     __u64 current;
 
-    /** Last time the rate limit was reset */
+    /** Last time the rate limit was reset. */
     __u64 last_time;
 };
 

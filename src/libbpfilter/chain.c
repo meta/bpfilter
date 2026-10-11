@@ -635,7 +635,8 @@ int bf_chain_new_from_copy(struct bf_chain **dest, const struct bf_chain *src)
     if (src->hook < 0 || src->hook >= _BF_HOOK_MAX)
         return bf_err_r(-EINVAL, "unknown source chain hook type");
 
-    r = bf_chain_new(&copy, src->name, src->hook, src->policy, NULL, NULL);
+    r = bf_chain_new(&copy, src->name, src->hook, src->policy, NULL, NULL,
+                     NULL);
     if (r)
         return r;
 

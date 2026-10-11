@@ -536,7 +536,6 @@ matcher         : matcher_type negate matcher_op RAW_PAYLOAD
                     _cleanup_free_ const char *payload = $4;
                     uint32_t limit_id = bf_list_size(&ruleset->limits);
                     int r;
-
                     struct bf_ratelimit *limit = NULL;
 
                     r = bf_limit_new_from_raw(&limit, payload);
