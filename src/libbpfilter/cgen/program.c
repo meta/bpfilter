@@ -1054,10 +1054,13 @@ static int _bf_program_load_log_map(struct bf_program *program)
     if (!(program->runtime.chain->flags & BF_FLAG(BF_CHAIN_LOG)))
         return 0;
 
-    r = bf_map_new(&program->handle->lmap, _BF_LOG_MAP_NAME, BF_MAP_TYPE_LOG, 0,
-                   0, _BF_LOG_MAP_SIZE);
-    if (r)
-        return bf_err_r(r, "failed to create the log bf_map object");
+    // The handle might already reuse the log map of the program it replaces
+    if (!program->handle->lmap) {
+        r = bf_map_new(&program->handle->lmap, _BF_LOG_MAP_NAME,
+                       BF_MAP_TYPE_LOG, 0, 0, _BF_LOG_MAP_SIZE);
+        if (r)
+            return bf_err_r(r, "failed to create the log bf_map object");
+    }
 
     r = _bf_program_fixup(program, BF_FIXUP_TYPE_LOG_MAP_FD);
     if (r)

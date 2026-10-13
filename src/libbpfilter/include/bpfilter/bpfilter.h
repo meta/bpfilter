@@ -122,6 +122,11 @@ int bf_chain_prog_fd(const char *name);
 /**
  * @brief Get the file descriptor of a chain's logs buffer.
  *
+ * The file descriptor keeps receiving the chain's logs after
+ * `bf_chain_update_set()`. After `bf_chain_update()`, `bf_chain_set()`, or
+ * `bf_ruleset_set()`, call `bf_chain_logs_fd()` again to get the new logs
+ * buffer.
+ *
  * @pre
  * - `name` is a non-NULL pointer to a C-string.
  *

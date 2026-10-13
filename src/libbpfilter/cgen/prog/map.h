@@ -101,6 +101,19 @@ int bf_map_new_from_set(struct bf_map **map, const char *name,
 int bf_map_new_from_pack(struct bf_map **map, int dir_fd, bf_rpack_node_t node);
 
 /**
+ * @brief Create a new map object referring to the same BPF map as `src`.
+ *
+ * The new object has its own file descriptor: the caller owns it and must
+ * free it with `bf_map_free`, which doesn't affect `src`.
+ *
+ * @param map Map object to allocate. On failure, `*map` is unchanged. Can't
+ *        be NULL.
+ * @param src Map to duplicate. Can't be NULL.
+ * @return 0 on success, or a negative errno value on failure.
+ */
+int bf_map_dup(struct bf_map **map, const struct bf_map *src);
+
+/**
  * Free a BPF map object.
  *
  * The BPF map's file descriptor contained in `map` is closed and set to

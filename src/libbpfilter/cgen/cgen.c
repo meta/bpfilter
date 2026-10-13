@@ -496,6 +496,12 @@ int bf_cgen_update(struct bf_cgen *cgen, struct bf_chain **new_chain,
                         "failed to generate the bytecode for a new bf_program");
     }
 
+    if ((flags & BF_FLAG(BF_CGEN_UPDATE_PRESERVE_LOGS)) && old_handle->lmap) {
+        r = bf_map_dup(&new_handle->lmap, old_handle->lmap);
+        if (r)
+            return bf_err_r(r, "failed to reuse the log map");
+    }
+
     r = bf_program_load(new_prog);
     if (r)
         return bf_err_r(r, "failed to load new program");

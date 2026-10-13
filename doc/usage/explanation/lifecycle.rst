@@ -22,7 +22,7 @@ If you want to modify the hook options, you will have to use ``chain set``. ``ru
 Updating a set
 --------------
 
-What if you only want to change the content of a named set? ``chain update-set`` will add or remove elements atomically, and preserve the counters. A blocklist is a good example: the addresses change over time, but the rule using them and the hook the chain is attached to don't.
+What if you only want to change the content of a named set? ``chain update-set`` will add or remove elements atomically and preserve the counters, and a running ``chain logs`` keeps printing the chain's log entries. A blocklist is a good example: the addresses change over time, but the rule using them and the hook the chain is attached to don't.
 
 Removing a chain
 ----------------

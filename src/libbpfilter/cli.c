@@ -487,7 +487,9 @@ int bf_chain_update_set(const char *name, const struct bf_set *to_add,
         return r;
 
     r = bf_cgen_update(cgen, &new_chain,
-                       BF_FLAG(BF_CGEN_UPDATE_PRESERVE_COUNTERS), &lock);
+                       BF_FLAGS(BF_CGEN_UPDATE_PRESERVE_COUNTERS,
+                                BF_CGEN_UPDATE_PRESERVE_LOGS),
+                       &lock);
     if (r)
         return bf_err_r(r, "failed to update chain with new set data");
 

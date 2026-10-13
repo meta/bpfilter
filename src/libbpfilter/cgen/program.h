@@ -300,8 +300,10 @@ int bf_program_set_bit_index(const struct bf_program *program,
  * Load the BPF program into the kernel.
  *
  * Prior to loading the BPF program, multiple BPF maps are created to store
- * the counters, the debug strings, and the sets. If the program can't be
- * loaded, all the maps are destroyed.
+ * the counters, the debug strings, and the sets. If `prog->handle` already has
+ * a log map, it is reused instead of creating a new one. If the program can't
+ * be loaded, the maps created by this function are destroyed, and a reused log
+ * map is only closed.
  *
  * Once the loading succeeds, the program and the maps are pinned to the
  * filesystem. If the BPF objects can't be pinned, the program is unloaded and
