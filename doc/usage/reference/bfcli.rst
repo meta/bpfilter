@@ -146,7 +146,7 @@ Print a chain.
 
 Print a chain's log entries.
 
-bfcli will print log entries as they are published by the chain. Hit ``Ctrl+C`` to quit.
+bfcli will print log entries as they are published by the chain. Hit ``Ctrl+C`` to quit. The log entries keep coming after ``chain update-set``. ``chain update``, ``chain set``, ``ruleset set``, ``chain flush``, and ``ruleset flush`` replace or remove the chain's logs buffer: a running ``chain logs`` doesn't exit, but it gets no more entries. Start it again once the chain is updated or set again.
 
 Log entries go through a fixed-size ring buffer of about 1000 entries. While it is full, for example because nothing reads it, new entries are dropped. Chains loaded with ``--verbose bpf`` print a message to the trace buffer for each dropped entry.
 

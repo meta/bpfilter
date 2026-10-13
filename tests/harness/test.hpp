@@ -107,6 +107,9 @@ int bft_capture_log(void *ctx, void *data, size_t size);
 void bft_assert_log_address(const uint8_t *actual, int family,
                             const char *expected);
 
+/** @brief Get the ID of the BPF map referred to by `fd`. */
+uint32_t bft_map_id(int fd);
+
 /**
  * @brief Encode a port number as a 2-byte big-endian payload.
  *

@@ -163,6 +163,15 @@ void bft_assert_log_address(const uint8_t *actual, int family,
     assert_memory_equal(addr.data(), actual, len);
 }
 
+uint32_t bft_map_id(int fd)
+{
+    struct bpf_map_info info = {};
+
+    assert_ok(bf_bpf_map_get_info(fd, &info));
+
+    return info.id;
+}
+
 namespace
 {
 // TCX_PASS/TCX_DROP/TCX_NEXT are enum values in linux/bpf.h, but may conflict

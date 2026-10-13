@@ -9,6 +9,7 @@
 
 #include <bpf/btf.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -297,6 +298,30 @@ int bf_map_new_from_pack(struct bf_map **map, int dir_fd, bf_rpack_node_t node)
     r = bf_bpf_obj_get(_map->name, dir_fd, &_map->fd);
     if (r < 0)
         return bf_err_r(r, "failed to open pinned BPF map '%s'", _map->name);
+
+    *map = TAKE_PTR(_map);
+
+    return 0;
+}
+
+int bf_map_dup(struct bf_map **map, const struct bf_map *src)
+{
+    _free_bf_map_ struct bf_map *_map = NULL;
+    _cleanup_close_ int fd = -1;
+
+    assert(map);
+    assert(src);
+
+    fd = fcntl(src->fd, F_DUPFD_CLOEXEC, 0);
+    if (fd < 0)
+        return bf_err_r(-errno, "bf_map %s: failed to duplicate FD", src->name);
+
+    _map = malloc(sizeof(*_map));
+    if (!_map)
+        return -ENOMEM;
+
+    *_map = *src;
+    _map->fd = TAKE_FD(fd);
 
     *map = TAKE_PTR(_map);
 

@@ -137,6 +137,9 @@ enum bf_cgen_update_flags
     /** Preserve counter values from the old program. */
     BF_CGEN_UPDATE_PRESERVE_COUNTERS,
 
+    /** Reuse the log ring buffer of the old program, if it has one. */
+    BF_CGEN_UPDATE_PRESERVE_LOGS,
+
     _BF_CGEN_UPDATE_MAX,
 };
 
