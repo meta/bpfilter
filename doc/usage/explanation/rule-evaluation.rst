@@ -12,7 +12,9 @@ Let's see how they work together.
 How does a rule match?
 ----------------------
 
-A rule contains one or more matchers, and the packet has to match **all** of them. For example, a rule defined with an IPv4 source address matcher and a TCP destination port matcher will only match the TCP packets coming from this address and sent to this port.
+A rule contains zero or more matchers, and the packet has to match **all** of them. For example, a rule defined with an IPv4 source address matcher and a TCP destination port matcher will only match the TCP packets coming from this address and sent to this port.
+
+A rule without matchers matches every packet or socket operation that reaches it.
 
 What if you want to match one address or another? Adding two ``ip4.saddr`` matchers to the same rule won't work: a packet only has one source address, so the rule would never match. Use two rules, or a set. A set contains multiple elements of the same type, and the rule will match if the packet's data is one of them. A named set is also defined outside of the rule: you can use it from multiple rules, and change its content without writing the whole chain again.
 

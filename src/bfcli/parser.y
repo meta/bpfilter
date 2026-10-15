@@ -494,17 +494,13 @@ log_headers     : STRING
                 }
                 ;
 
-matchers        : matcher
+matchers        : %empty
                 {
                     _free_bf_list_ bf_list *list = NULL;
 
                     if (bf_list_new(&list, (bf_list_ops[]){{.free = (bf_list_ops_free)bf_matcher_free, .pack = (bf_list_ops_pack)bf_matcher_pack}}) < 0)
                         bf_parse_err("failed to allocate a new bf_list for bf_matcher\n");
 
-                    if (bf_list_add_tail(list, $1) < 0)
-                        bf_parse_err("failed to insert matcher into bf_list\n");
-
-                    TAKE_PTR($1);
                     $$ = TAKE_PTR(list);
                 }
                 | matchers matcher
