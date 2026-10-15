@@ -21,7 +21,7 @@ Commands
 
 ``bfcli`` commands are structured as ``bfcli OBJECT ACTION``. The commands and actions supported by ``bfcli`` are described below.
 
-For the commands supporting it, ``--dry-run`` will parse the chains and check that their matchers, sets, ``log``, and ``mark`` are supported by their hook, then stop: nothing is generated, loaded, or attached, so you don't need to be root. A successful dry run doesn't mean the chain will load: for example, bpfilter only checks if the hook supports ``REDIRECT`` when it generates the program.
+For the commands supporting it, ``--dry-run`` will parse the chains and check that their matchers, sets, ``log``, ``mark``, and ``REDIRECT`` are supported by their hook, then stop: nothing is generated, loaded, or attached, so you don't need to be root. A successful dry run doesn't guarantee that the chain will load.
 
 ``ruleset set``
 ~~~~~~~~~~~~~~~
