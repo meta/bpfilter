@@ -862,7 +862,10 @@ static void redirect_validation(void **state)
 
     (void)state;
 
-    // NF does not support REDIRECT.
+    // NF does not support REDIRECT, even after an unconditional DROP.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_DROP;
+    assert_ok(bf_list_add_tail(&rules, rule));
     assert_ok(bf_rule_new(&rule));
     rule->verdict = BF_VERDICT_REDIRECT;
     bf_rule_set_redirect(rule, 1, BF_REDIRECT_EGRESS);
@@ -908,7 +911,10 @@ static void matcher_operator_validation(void **state)
 
     (void)state;
 
-    // ANY is not supported for IPv4 addresses.
+    // An unconditional DROP must not hide an unsupported scalar operator.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_DROP;
+    assert_ok(bf_list_add_tail(&rules, rule));
     assert_ok(bf_rule_new(&rule));
     assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_IP4_SADDR, BF_MATCHER_ANY,
                                   &addr, sizeof(addr), false));
