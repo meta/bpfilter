@@ -95,8 +95,7 @@ static int _bf_xdp_gen_inline_redirect(struct bf_program *program,
 {
     assert(program);
 
-    if (dir != BF_REDIRECT_EGRESS)
-        return bf_err_r(-ENOTSUP, "XDP redirect only supports 'out' direction");
+    (void)dir;
 
     // bpf_redirect(ifindex, flags) - flags are ignored for XDP
     EMIT(program, BPF_MOV64_IMM(BPF_REG_1, ifindex));
