@@ -39,7 +39,7 @@ test "$(get_counter c 5)" -gt 0
 test "$(get_counter c 6)" -gt 0
 
 # Comparison no-ops also terminate without emitting the suffix or policy.
-for matcher in '(meta.sport) not in {}'; do
+for matcher in '(meta.sport) not in {}' 'meta.probability eq 100%'; do
     ${FROM_NS} ${BFCLI} chain set --from-str \
         "chain c BF_HOOK_XDP{ifindex=${NS_IFINDEX}} NEXT \
          rule meta.l3_proto not ipv4 NEXT \

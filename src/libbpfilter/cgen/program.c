@@ -635,6 +635,12 @@ static bool _bf_program_matcher_is_noop(const struct bf_program *program,
     assert(program);
     assert(matcher);
 
+    if (bf_matcher_get_type(matcher) == BF_MATCHER_META_PROBABILITY) {
+        const float proba = *(const float *)bf_matcher_payload(matcher);
+
+        return proba == 100.0F && !bf_matcher_get_negate(matcher);
+    }
+
     if (bf_matcher_get_type(matcher) == BF_MATCHER_SET) {
         const struct bf_set *set =
             bf_chain_get_set_for_matcher(program->runtime.chain, matcher);
