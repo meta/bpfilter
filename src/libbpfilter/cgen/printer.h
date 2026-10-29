@@ -76,19 +76,19 @@ struct bf_printer_msg;
         };                                                                     \
         __ld_insn[0].src_reg = BPF_PSEUDO_MAP_VALUE;                           \
         __ld_insn[1].imm = bf_printer_msg_offset(__msg);                       \
-        __r = bf_program_emit_fixup((program), BF_FIXUP_TYPE_PRINTER_MAP_FD,   \
+        __r = bf_codegen_emit_fixup((program), BF_FIXUP_TYPE_PRINTER_MAP_FD,   \
                                     __ld_insn[0], NULL);                       \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit((program), __ld_insn[1]);                        \
+        __r = bf_codegen_emit((program), __ld_insn[1]);                        \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit(                                                 \
+        __r = bf_codegen_emit(                                                 \
             (program), BPF_MOV64_IMM(BPF_REG_2, bf_printer_msg_len(__msg)));   \
         if (__r < 0)                                                           \
             return __r;                                                        \
         __r =                                                                  \
-            bf_program_emit((program), BPF_EMIT_CALL(BPF_FUNC_trace_printk));  \
+            bf_codegen_emit((program), BPF_EMIT_CALL(BPF_FUNC_trace_printk));  \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })

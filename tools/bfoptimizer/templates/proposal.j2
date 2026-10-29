@@ -19,7 +19,7 @@ Eliminating stack accesses on the hot path is the highest-value target after red
 ## cgen/ file inventory
 
 stub.c / stub.h      – packet-header parsing stubs (L2/L3/L4); primary hot-path target
-program.c / .h       – BPF program generation entry point, rule-emission loop
+codegen.c / .h       – BPF program generation entry point, rule-emission loop
 packet.c / .h        – packet-based matcher payload access (header field loads via r6)
 swich.c / .h         – BPF dispatch-table (switch-case) code emitter
 jmp.c / .h           – forward-jump fixup management

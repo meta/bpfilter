@@ -26,11 +26,11 @@
 #include <bpfilter/set.h>
 #include <bpfilter/verdict.h>
 
+#include "cgen/codegen.h"
 #include "cgen/jmp.h"
 #include "cgen/matcher/cmp.h"
 #include "cgen/matcher/meta.h"
 #include "cgen/matcher/set.h"
-#include "cgen/program.h"
 #include "cgen/runtime.h"
 #include "cgen/stub.h"
 #include "filter.h"
@@ -38,7 +38,7 @@
 // Forward definition to avoid header conflicts.
 uint16_t htons(uint16_t hostshort);
 
-static int _bf_cgroup_sock_addr_gen_inline_prologue(struct bf_program *program)
+static int _bf_cgroup_sock_addr_gen_inline_prologue(struct bf_codegen *program)
 {
     assert(program);
 
@@ -71,7 +71,7 @@ static int _bf_cgroup_sock_addr_gen_inline_prologue(struct bf_program *program)
     return 0;
 }
 
-static int _bf_cgroup_sock_addr_gen_inline_epilogue(struct bf_program *program)
+static int _bf_cgroup_sock_addr_gen_inline_epilogue(struct bf_codegen *program)
 {
     (void)program;
 
@@ -94,7 +94,7 @@ static int _bf_cgroup_sock_addr_gen_inline_epilogue(struct bf_program *program)
  * @param reg BPF register to load the value into.
  * @return 0 on success, negative errno on error.
  */
-static int _bf_cgroup_sock_addr_load_field(struct bf_program *program,
+static int _bf_cgroup_sock_addr_load_field(struct bf_codegen *program,
                                            size_t offset, size_t size, int reg)
 {
     assert(program);
@@ -154,7 +154,7 @@ static int _bf_cgroup_sock_addr_load_field(struct bf_program *program,
  * @param reg BPF register holding the value to store.
  * @return 0 on success, negative errno on error.
  */
-static int _bf_cgroup_sock_addr_store_field(struct bf_program *program,
+static int _bf_cgroup_sock_addr_store_field(struct bf_codegen *program,
                                             int offset, size_t size, int reg)
 {
     assert(program);
@@ -183,7 +183,7 @@ static int _bf_cgroup_sock_addr_store_field(struct bf_program *program,
     return 0;
 }
 
-static int _bf_cgroup_sock_addr_load_and_cmp(struct bf_program *program,
+static int _bf_cgroup_sock_addr_load_and_cmp(struct bf_codegen *program,
                                              const struct bf_matcher *matcher,
                                              size_t offset, size_t size)
 {
@@ -200,7 +200,7 @@ static int _bf_cgroup_sock_addr_load_and_cmp(struct bf_program *program,
                         BPF_REG_1);
 }
 
-static int _bf_cgroup_sock_addr_generate_net(struct bf_program *program,
+static int _bf_cgroup_sock_addr_generate_net(struct bf_codegen *program,
                                              const struct bf_matcher *matcher,
                                              size_t offset, size_t size)
 {
@@ -226,7 +226,7 @@ static int _bf_cgroup_sock_addr_generate_net(struct bf_program *program,
  * guaranteed zero by the kernel ABI. Loaded as `BPF_W` so EQ/NE compare
  * the full 32-bit register (safe because upper bits are zero). For range
  * comparisons, `BSWAP` converts to host order (and zeroes the upper bits). */
-static int _bf_cgroup_sock_addr_generate_port(struct bf_program *program,
+static int _bf_cgroup_sock_addr_generate_port(struct bf_codegen *program,
                                               const struct bf_matcher *matcher)
 {
     int r;
@@ -275,7 +275,7 @@ static ssize_t _bf_cgroup_sock_addr_ctx_offset(enum bf_matcher_type type)
     }
 }
 
-static int _bf_cgroup_sock_addr_generate_set(struct bf_program *program,
+static int _bf_cgroup_sock_addr_generate_set(struct bf_codegen *program,
                                              const struct bf_matcher *matcher)
 {
     const struct bf_set *set;
@@ -370,7 +370,7 @@ static int _bf_cgroup_sock_addr_generate_set(struct bf_program *program,
 }
 
 static int
-_bf_cgroup_sock_addr_gen_inline_matcher(struct bf_program *program,
+_bf_cgroup_sock_addr_gen_inline_matcher(struct bf_codegen *program,
                                         const struct bf_matcher *matcher)
 {
     assert(program);
@@ -491,7 +491,7 @@ static_assert(sizeof(struct bf_runtime_sock_addr) + sizeof(__u64) <= 64,
  * @param program Program to emit the instructions into. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure.
  */
-static int _bf_cgroup_sock_addr_store_ns_pid(struct bf_program *program)
+static int _bf_cgroup_sock_addr_store_ns_pid(struct bf_codegen *program)
 {
     int group_leader_off;
     int thread_pid_off;
@@ -545,7 +545,7 @@ static int _bf_cgroup_sock_addr_store_ns_pid(struct bf_program *program)
         return level_off;
 
     /* R9 is callee-saved and free at this point: the rate limiter in
-     * `_bf_program_generate_log()` is done with it. It keeps `thread_pid`
+     * `_bf_codegen_generate_log()` is done with it. It keeps `thread_pid`
      * across the `level` read, to index `numbers` with it. */
     EMIT(program, BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10,
                               _BF_SOCK_ADDR_NS_PID_WALK_OFF));
@@ -594,7 +594,7 @@ static int _bf_cgroup_sock_addr_store_ns_pid(struct bf_program *program)
     return 0;
 }
 
-static int _bf_cgroup_sock_addr_gen_inline_log(struct bf_program *program,
+static int _bf_cgroup_sock_addr_gen_inline_log(struct bf_codegen *program,
                                                const struct bf_rule *rule)
 {
     uint8_t captured_fields = 0;

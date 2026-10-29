@@ -18,13 +18,13 @@
 #include <bpfilter/matcher.h>
 #include <bpfilter/verdict.h>
 
+#include "cgen/codegen.h"
 #include "cgen/matcher/cmp.h"
 #include "cgen/packet.h"
-#include "cgen/program.h"
 #include "cgen/stub.h"
 #include "filter.h"
 
-static int _bf_tc_gen_inline_prologue(struct bf_program *program)
+static int _bf_tc_gen_inline_prologue(struct bf_codegen *program)
 {
     int r;
 
@@ -69,14 +69,14 @@ static int _bf_tc_gen_inline_prologue(struct bf_program *program)
     return 0;
 }
 
-static int _bf_tc_gen_inline_epilogue(struct bf_program *program)
+static int _bf_tc_gen_inline_epilogue(struct bf_codegen *program)
 {
     (void)program;
 
     return 0;
 }
 
-static int _bf_tc_gen_inline_set_mark(struct bf_program *program, uint32_t mark)
+static int _bf_tc_gen_inline_set_mark(struct bf_codegen *program, uint32_t mark)
 {
     EMIT(program,
          BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_10, BF_PROG_CTX_OFF(arg)));
@@ -87,7 +87,7 @@ static int _bf_tc_gen_inline_set_mark(struct bf_program *program, uint32_t mark)
     return 0;
 }
 
-static int _bf_tc_gen_inline_matcher(struct bf_program *program,
+static int _bf_tc_gen_inline_matcher(struct bf_codegen *program,
                                      const struct bf_matcher *matcher)
 {
     assert(program);
@@ -130,7 +130,7 @@ static int _bf_tc_gen_inline_matcher(struct bf_program *program,
  * @param dir Direction: ingress or egress.
  * @return 0 on success, or a negative errno value on failure.
  */
-static int _bf_tc_gen_inline_redirect(struct bf_program *program,
+static int _bf_tc_gen_inline_redirect(struct bf_codegen *program,
                                       uint32_t ifindex,
                                       enum bf_redirect_dir dir)
 {

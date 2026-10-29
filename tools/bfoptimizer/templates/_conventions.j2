@@ -8,7 +8,7 @@ r10 – frame pointer (BPF stack base)
 r1–r5 – scratch / function args (clobbered by every kfunc/helper call)
 r9  – callee-saved, currently unused
 
-Do not clobber r7 or r8 inside matcher code. Protocol checks are deduplicated per rule (`checked_layers` in `_bf_program_generate_rule()`); r6 is reloaded from the runtime context for each matcher, so do not assume it stays valid across matchers or rules.
+Do not clobber r7 or r8 inside matcher code. Protocol checks are deduplicated per rule (`checked_layers` in `_bf_codegen_generate_rule()`); r6 is reloaded from the runtime context for each matcher, so do not assume it stays valid across matchers or rules.
 
 Never target cgroup_sock_addr programs — no benchmarks exist for them.
 

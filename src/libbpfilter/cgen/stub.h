@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 struct bf_matcher_meta;
-struct bf_program;
+struct bf_codegen;
 
 /**
  * Emit instructions to get a dynptr for an XDP program.
@@ -22,7 +22,7 @@ struct bf_program;
  * @param md_reg Scratch register containing the pointer to the xdp_md.
  * @return 0 on success, or negative errno value on error.
  */
-int bf_stub_make_ctx_xdp_dynptr(struct bf_program *program, int md_reg);
+int bf_stub_make_ctx_xdp_dynptr(struct bf_codegen *program, int md_reg);
 
 /**
  * Emit instructions to get a dynptr for an XDP program.
@@ -36,7 +36,7 @@ int bf_stub_make_ctx_xdp_dynptr(struct bf_program *program, int md_reg);
  * @param skb_reg Scratch register containing the pointer to the skb.
  * @return 0 on success, or negative errno value on error.
  */
-int bf_stub_make_ctx_skb_dynptr(struct bf_program *program, int skb_reg);
+int bf_stub_make_ctx_skb_dynptr(struct bf_codegen *program, int skb_reg);
 
 /**
  * Emit instructions to get a dynptr slice for the packet's L2 Ethernet
@@ -54,7 +54,7 @@ int bf_stub_make_ctx_skb_dynptr(struct bf_program *program, int skb_reg);
  * @param program Program to emit instructions into.
  * @return 0 on success, or negative errno value on error.
  */
-int bf_stub_parse_l2_ethhdr(struct bf_program *program);
+int bf_stub_parse_l2_ethhdr(struct bf_codegen *program);
 
 /**
  * Emit instructions to get a dynptr slice for the packet's L3 IPv4
@@ -72,7 +72,7 @@ int bf_stub_parse_l2_ethhdr(struct bf_program *program);
  * @param program Program to emit instructions into.
  * @return 0 on success, or negative errno value on error.
  */
-int bf_stub_parse_l3_hdr(struct bf_program *program);
+int bf_stub_parse_l3_hdr(struct bf_codegen *program);
 
 /**
  * Emit instructions to get a dynptr slice for the packet's L4 header.
@@ -92,7 +92,7 @@ int bf_stub_parse_l3_hdr(struct bf_program *program);
  * @param program Program to emit instructions into.
  * @return 0 on success, or negative errno value on error.
  */
-int bf_stub_parse_l4_hdr(struct bf_program *program);
+int bf_stub_parse_l4_hdr(struct bf_codegen *program);
 
 /**
  * @brief Emit the instructions to check if the packet contains a specific
@@ -106,7 +106,7 @@ int bf_stub_parse_l4_hdr(struct bf_program *program);
  * @param meta Metadata for the matcher type to apply. Can't be NULL.
  * @return 0 on success, or negative error value on error.
  */
-int bf_stub_rule_check_protocol(struct bf_program *program,
+int bf_stub_rule_check_protocol(struct bf_codegen *program,
                                 const struct bf_matcher_meta *meta);
 
 /**
@@ -118,7 +118,7 @@ int bf_stub_rule_check_protocol(struct bf_program *program,
  * @param reg Register to load the header address into.
  * @return 0 on success, or negative error value on error.
  */
-int bf_stub_load_header(struct bf_program *program,
+int bf_stub_load_header(struct bf_codegen *program,
                         const struct bf_matcher_meta *meta, int reg);
 
 /**
@@ -135,7 +135,7 @@ int bf_stub_load_header(struct bf_program *program,
  *        `BF_PROG_SCR_OFF()` for scratch area offsets.
  * @return 0 on success, or negative error value on error.
  */
-int bf_stub_load(struct bf_program *program, size_t src_offset, size_t size,
+int bf_stub_load(struct bf_codegen *program, size_t src_offset, size_t size,
                  int dst_offset);
 
 /**
@@ -154,8 +154,8 @@ int bf_stub_load(struct bf_program *program, size_t src_offset, size_t size,
  * @param dst_offset Byte offset from `R10` (stack pointer) to write to.
  * @return 0 on success, or negative error value on error.
  */
-int bf_stub_store(struct bf_program *program, int reg, size_t size,
+int bf_stub_store(struct bf_codegen *program, int reg, size_t size,
                   int dst_offset);
 
-int bf_stub_stx_payload(struct bf_program *program,
+int bf_stub_stx_payload(struct bf_codegen *program,
                         const struct bf_matcher_meta *meta, size_t offset);

@@ -5,7 +5,7 @@
 #
 # Sets are indexed by position in chain->sets. The matcher payload stores this
 # index, which is used by BF_FIXUP_TYPE_SET_MAP_FD to resolve the map fd from
-# handle->sets. If _bf_program_load_sets_maps skips empty sets without
+# handle->sets. If _bf_codegen_load_sets_maps skips empty sets without
 # preserving their index slot, subsequent non-empty sets end up at wrong
 # positions in handle->sets, causing fixup resolution to fail or resolve the
 # wrong map.

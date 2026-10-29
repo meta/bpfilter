@@ -190,7 +190,7 @@ Lists, vectors, and hashsets
 Kernel-side resources
 ---------------------
 
-Some ``bpfilter`` objects wrap resources whose real owner is the kernel: ``bf_map`` (BPF maps), ``bf_link`` (BPF links), ``bf_program`` (BPF programs). Each follows the standard heap-object discipline (``_free_bf_map_``, ``_free_bf_link_``, ``_free_bf_program_``) and its ``bf_<type>_free`` closes the embedded fd as part of cleanup.
+Some ``bpfilter`` objects wrap resources whose real owner is the kernel: ``bf_map`` (BPF maps), ``bf_link`` (BPF links), ``bf_handle`` (BPF programs, maps, and links). Each follows the standard heap-object discipline (``_free_bf_map_``, ``_free_bf_link_``, ``_free_bf_handle_``) and its ``bf_<type>_free`` closes the embedded fd as part of cleanup.
 
 What makes these objects unusual is that closing the fd does **not** necessarily destroy the kernel resource. A BPF map, link, or program persists as long as any of the following holds a reference:
 
@@ -202,7 +202,7 @@ Two consequences for reviewers:
 - Forgetting ``_free_bf_link_`` on a local leaks the userspace struct *and* potentially detaches the BPF program from its hook when the kernel link's last reference goes away. Cleanup correctness has user-visible side effects beyond memory.
 - Conversely, a pinned object survives the death of every userspace handle. ``bf_link_unpin`` removes the bpffs entry; until that runs, freeing the ``bf_link`` doesn't actually detach anything. See ``bf_link_free`` for the explicit warning.
 
-Reviewing a change that allocates, transfers, or releases a ``bf_map`` / ``bf_link`` / ``bf_program`` requires checking both the userspace lifetime (cleanup attribute, ``TAKE_PTR``) **and** the kernel-side lifetime (pinning / unpinning).
+Reviewing a change that allocates, transfers, or releases a ``bf_map`` / ``bf_link`` / ``bf_handle`` requires checking both the userspace lifetime (cleanup attribute, ``TAKE_PTR``) **and** the kernel-side lifetime (pinning / unpinning).
 
 
 A worked example

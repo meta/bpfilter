@@ -25,11 +25,11 @@
 #include <bpfilter/pack.h>
 #include <bpfilter/rule.h>
 
+#include "cgen/codegen.h"
 #include "cgen/dump.h"
 #include "cgen/handle.h"
 #include "cgen/prog/link.h"
 #include "cgen/prog/map.h"
-#include "cgen/program.h"
 #include "core/lock.h"
 
 #define _BF_PROG_NAME "bf_prog"
@@ -311,21 +311,21 @@ int bf_cgen_get_counter(const struct bf_cgen *cgen,
 int bf_cgen_set(struct bf_cgen *cgen, struct bf_hookopts **hookopts,
                 struct bf_lock *lock)
 {
-    _free_bf_program_ struct bf_program *prog = NULL;
+    _free_bf_codegen_ struct bf_codegen *prog = NULL;
     int r;
 
     assert(cgen);
     assert(lock);
 
-    r = bf_program_new(&prog, cgen->chain, cgen->handle);
+    r = bf_codegen_new(&prog, cgen->chain, cgen->handle);
     if (r < 0)
         return r;
 
-    r = bf_program_generate(prog);
+    r = bf_codegen_generate(prog);
     if (r < 0)
-        return bf_err_r(r, "failed to generate bf_program");
+        return bf_err_r(r, "failed to generate bf_codegen");
 
-    r = bf_program_load(prog);
+    r = bf_codegen_load(prog);
     if (r < 0)
         return bf_err_r(r, "failed to load the chain");
 
@@ -351,21 +351,21 @@ int bf_cgen_set(struct bf_cgen *cgen, struct bf_hookopts **hookopts,
 
 int bf_cgen_load(struct bf_cgen *cgen, struct bf_lock *lock)
 {
-    _free_bf_program_ struct bf_program *prog = NULL;
+    _free_bf_codegen_ struct bf_codegen *prog = NULL;
     int r;
 
     assert(cgen);
     assert(lock);
 
-    r = bf_program_new(&prog, cgen->chain, cgen->handle);
+    r = bf_codegen_new(&prog, cgen->chain, cgen->handle);
     if (r < 0)
         return r;
 
-    r = bf_program_generate(prog);
+    r = bf_codegen_generate(prog);
     if (r < 0)
-        return bf_err_r(r, "failed to generate bf_program");
+        return bf_err_r(r, "failed to generate bf_codegen");
 
-    r = bf_program_load(prog);
+    r = bf_codegen_load(prog);
     if (r < 0)
         return bf_err_r(r, "failed to load the chain");
 
@@ -468,7 +468,7 @@ static int _bf_cgen_transfer_counters(const struct bf_handle *old_handle,
 int bf_cgen_update(struct bf_cgen *cgen, struct bf_chain **new_chain,
                    uint32_t flags, struct bf_lock *lock)
 {
-    _free_bf_program_ struct bf_program *new_prog = NULL;
+    _free_bf_codegen_ struct bf_codegen *new_prog = NULL;
     _free_bf_handle_ struct bf_handle *new_handle = NULL;
     struct bf_handle *old_handle;
     int r;
@@ -486,14 +486,14 @@ int bf_cgen_update(struct bf_cgen *cgen, struct bf_chain **new_chain,
     if (r)
         return r;
 
-    r = bf_program_new(&new_prog, *new_chain, new_handle);
+    r = bf_codegen_new(&new_prog, *new_chain, new_handle);
     if (r < 0)
-        return bf_err_r(r, "failed to create a new bf_program");
+        return bf_err_r(r, "failed to create a new bf_codegen");
 
-    r = bf_program_generate(new_prog);
+    r = bf_codegen_generate(new_prog);
     if (r < 0) {
         return bf_err_r(r,
-                        "failed to generate the bytecode for a new bf_program");
+                        "failed to generate the bytecode for a new bf_codegen");
     }
 
     if ((flags & BF_FLAG(BF_CGEN_UPDATE_PRESERVE_LOGS)) && old_handle->lmap) {
@@ -502,7 +502,7 @@ int bf_cgen_update(struct bf_cgen *cgen, struct bf_chain **new_chain,
             return bf_err_r(r, "failed to reuse the log map");
     }
 
-    r = bf_program_load(new_prog);
+    r = bf_codegen_load(new_prog);
     if (r)
         return bf_err_r(r, "failed to load new program");
 

@@ -27,9 +27,9 @@
 #include <bpfilter/matcher.h>
 #include <bpfilter/verdict.h>
 
+#include "cgen/codegen.h"
 #include "cgen/jmp.h"
 #include "cgen/printer.h"
-#include "cgen/program.h"
 #include "cgen/swich.h"
 #include "filter.h"
 
@@ -44,7 +44,7 @@
  * @param kfunc Name of the kfunc to use to create the dynamic pointer.
  * @return 0 on success, or negative errno value on error.
  */
-static int _bf_stub_make_ctx_dynptr(struct bf_program *program, int arg_reg,
+static int _bf_stub_make_ctx_dynptr(struct bf_codegen *program, int arg_reg,
                                     const char *kfunc)
 {
     int ret_code;
@@ -71,7 +71,7 @@ static int _bf_stub_make_ctx_dynptr(struct bf_program *program, int arg_reg,
         EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
         EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
         EMIT(program,
-             BPF_MOV32_IMM(BPF_REG_3, bf_program_error_counter_idx(program)));
+             BPF_MOV32_IMM(BPF_REG_3, bf_codegen_error_counter_idx(program)));
         EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
 
         if (bf_ctx_is_verbose(BF_VERBOSE_BPF))
@@ -88,21 +88,21 @@ static int _bf_stub_make_ctx_dynptr(struct bf_program *program, int arg_reg,
     return 0;
 }
 
-int bf_stub_make_ctx_xdp_dynptr(struct bf_program *program, int md_reg)
+int bf_stub_make_ctx_xdp_dynptr(struct bf_codegen *program, int md_reg)
 {
     assert(program);
 
     return _bf_stub_make_ctx_dynptr(program, md_reg, "bpf_dynptr_from_xdp");
 }
 
-int bf_stub_make_ctx_skb_dynptr(struct bf_program *program, int skb_reg)
+int bf_stub_make_ctx_skb_dynptr(struct bf_codegen *program, int skb_reg)
 {
     assert(program);
 
     return _bf_stub_make_ctx_dynptr(program, skb_reg, "bpf_dynptr_from_skb");
 }
 
-int bf_stub_parse_l2_ethhdr(struct bf_program *program)
+int bf_stub_parse_l2_ethhdr(struct bf_codegen *program)
 {
     int ret_code;
     int r;
@@ -132,7 +132,7 @@ int bf_stub_parse_l2_ethhdr(struct bf_program *program)
         EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
         EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
         EMIT(program,
-             BPF_MOV32_IMM(BPF_REG_3, bf_program_error_counter_idx(program)));
+             BPF_MOV32_IMM(BPF_REG_3, bf_codegen_error_counter_idx(program)));
         EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
 
         if (bf_ctx_is_verbose(BF_VERBOSE_BPF))
@@ -161,7 +161,7 @@ int bf_stub_parse_l2_ethhdr(struct bf_program *program)
     return 0;
 }
 
-int bf_stub_parse_l3_hdr(struct bf_program *program)
+int bf_stub_parse_l3_hdr(struct bf_codegen *program)
 {
     _clean_bf_jmpctx_ struct bf_jmpctx _ = bf_jmpctx_default();
     int ret_code;
@@ -209,7 +209,7 @@ int bf_stub_parse_l3_hdr(struct bf_program *program)
         EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
         EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
         EMIT(program,
-             BPF_MOV32_IMM(BPF_REG_3, bf_program_error_counter_idx(program)));
+             BPF_MOV32_IMM(BPF_REG_3, bf_codegen_error_counter_idx(program)));
         EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
 
         if (bf_ctx_is_verbose(BF_VERBOSE_BPF))
@@ -319,7 +319,7 @@ int bf_stub_parse_l3_hdr(struct bf_program *program)
     return 0;
 }
 
-int bf_stub_parse_l4_hdr(struct bf_program *program)
+int bf_stub_parse_l4_hdr(struct bf_codegen *program)
 {
     _clean_bf_jmpctx_ struct bf_jmpctx _ = bf_jmpctx_default();
     int r;
@@ -371,7 +371,7 @@ int bf_stub_parse_l4_hdr(struct bf_program *program)
         EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
         EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
         EMIT(program,
-             BPF_MOV32_IMM(BPF_REG_3, bf_program_error_counter_idx(program)));
+             BPF_MOV32_IMM(BPF_REG_3, bf_codegen_error_counter_idx(program)));
         EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
 
         if (bf_ctx_is_verbose(BF_VERBOSE_BPF))
@@ -390,7 +390,7 @@ int bf_stub_parse_l4_hdr(struct bf_program *program)
     return 0;
 }
 
-int bf_stub_rule_check_protocol(struct bf_program *program,
+int bf_stub_rule_check_protocol(struct bf_codegen *program,
                                 const struct bf_matcher_meta *meta)
 {
     assert(program);
@@ -414,7 +414,7 @@ int bf_stub_rule_check_protocol(struct bf_program *program,
     return 0;
 }
 
-int bf_stub_load_header(struct bf_program *program,
+int bf_stub_load_header(struct bf_codegen *program,
                         const struct bf_matcher_meta *meta, int reg)
 {
     assert(program);
@@ -438,7 +438,7 @@ int bf_stub_load_header(struct bf_program *program,
     return 0;
 }
 
-int bf_stub_load(struct bf_program *program, size_t src_offset, size_t size,
+int bf_stub_load(struct bf_codegen *program, size_t src_offset, size_t size,
                  int dst_offset)
 {
     size_t src_off = src_offset;
@@ -476,7 +476,7 @@ int bf_stub_load(struct bf_program *program, size_t src_offset, size_t size,
     return 0;
 }
 
-int bf_stub_store(struct bf_program *program, int reg, size_t size,
+int bf_stub_store(struct bf_codegen *program, int reg, size_t size,
                   int dst_offset)
 {
     int dst_off = dst_offset;
@@ -514,7 +514,7 @@ int bf_stub_store(struct bf_program *program, int reg, size_t size,
     return 0;
 }
 
-int bf_stub_stx_payload(struct bf_program *program,
+int bf_stub_stx_payload(struct bf_codegen *program,
                         const struct bf_matcher_meta *meta, size_t offset)
 {
     assert(program);
