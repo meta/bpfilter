@@ -37,7 +37,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/btf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/chain.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/api.c
     ${CMAKE_CURRENT_SOURCE_DIR}/counter.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ctx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/dump.c
