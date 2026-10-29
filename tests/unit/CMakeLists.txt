@@ -96,6 +96,7 @@ bf_add_c_test(unit libbpfilter/matcher.c)
 bf_add_c_test(unit libbpfilter/pack.c)
 bf_add_c_test(unit libbpfilter/rule.c)
 bf_add_c_test(unit libbpfilter/set.c)
+bf_add_c_test(unit libbpfilter/state.c)
 bf_add_c_test(unit libbpfilter/verdict.c)
 bf_add_c_test(unit libbpfilter/version.c)
 
