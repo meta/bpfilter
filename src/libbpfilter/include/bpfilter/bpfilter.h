@@ -59,6 +59,12 @@ int bf_ruleset_get(bf_list *chains, bf_list *hookopts);
  * mapped 1 to 1. If a chain shouldn't be attached, the corresponding entry
  * in `hookopts` should be NULL.
  *
+ * The caller retains ownership of both lists and their contents on success
+ * and failure. Preparation recomputes `bf_rule::index`, `bf_rule::disabled`,
+ * and `bf_chain::flags` in each caller-provided chain. These fields may also
+ * change if the operation fails. Caller counters remain unchanged. The new
+ * programs start with zero kernel counters.
+ *
  * @param chains List of chains to define. Can't be NULL.
  * @param hookopts List of hook options to attach the chains in `chain`. Can't
  *        be NULL.
@@ -78,6 +84,12 @@ int bf_ruleset_flush(void);
  *
  * If a chain with the same name already exists, it is detached and unloaded.
  * The new chain is loaded, and attached if hook options are defined.
+ *
+ * The caller retains ownership of `chain` and `hookopts` on success and
+ * failure. Preparation recomputes `bf_rule::index`, `bf_rule::disabled`, and
+ * `bf_chain::flags` in the caller's chain. These fields may also change if
+ * the operation fails. Caller counters remain unchanged. The new program
+ * starts with zero kernel counters.
  *
  * @param chain Chain to set. Can't be NULL.
  * @param hookopts Hook options to attach the chain. If NULL, the chain is not
@@ -142,6 +154,12 @@ int bf_chain_logs_fd(const char *name);
  *
  * If a chain with the same name already exists, `-EEXIST` is returned.
  *
+ * The caller retains ownership of `chain` on success and failure.
+ * Preparation recomputes `bf_rule::index`, `bf_rule::disabled`, and
+ * `bf_chain::flags` in the caller's chain. These fields may also change if
+ * the operation fails. Caller counters remain unchanged. The new program
+ * starts with zero kernel counters.
+ *
  * @param chain Chain to load. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure.
  */
@@ -163,9 +181,20 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts);
 /**
  * @brief Update a chain.
  *
- * The chain to update must exist, and `chain` must use the same hook. If the
- * chain is attached to a hook, the new program replaces the existing one
- * atomically, and the chain stays attached.
+ * The chain to update must exist, and `chain` must use the same hook.
+ * On success, if the chain is attached, the new program atomically replaces
+ * the existing one and the chain stays attached.
+ *
+ * The caller retains ownership of `chain` on success and failure.
+ * Preparation recomputes `bf_rule::index`, `bf_rule::disabled`, and
+ * `bf_chain::flags` in the caller's chain. These fields may also change if
+ * the operation fails. Caller counters remain unchanged. The replacement
+ * starts with zero kernel counters.
+ *
+ * Preparation failures leave the installed chain intact. A failure while
+ * pinning or persisting the updated program can detach the chain and leave
+ * state that cannot be restored. In that case, `bf_chain_flush()` also fails.
+ * Recovery requires manually removing the chain's bpffs directory.
  *
  * @param chain Chain to update. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure, including:
@@ -182,6 +211,14 @@ int bf_chain_update(const struct bf_chain *chain);
  * are added to the set, and elements from `to_remove` are removed. If
  * `to_remove` has elements that already aren't present in the program,
  * these elements are ignored.
+ *
+ * The operation borrows both delta sets without modifying them or taking
+ * ownership. It edits a private candidate and transfers rule, policy, and
+ * error counters before publication. Preparation failures leave the
+ * installed chain intact. A failure while pinning or persisting the
+ * updated program can detach the chain and leave state that cannot be
+ * restored. In that case, `bf_chain_flush()` also fails. Recovery requires
+ * manually removing the chain's bpffs directory.
  *
  * @param name Name of the chain containing the set. Can't be NULL.
  * @param to_add Set containing elements to add. The set name and key format

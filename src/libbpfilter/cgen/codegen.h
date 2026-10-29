@@ -247,14 +247,20 @@ struct bf_codegen
 /**
  * @brief Allocate and initialize a new `bf_codegen` object.
  *
+ * The chain's rules are validated, and their derived state is updated in
+ * `chain` (see `bf_chain_validate_rules()`). The context then reads the chain
+ * without modifying it.
+ *
+ * @todo Compute the derived state in the context instead of updating the
+ *       caller's chain.
+ *
  * @param program `bf_codegen` object to allocate and initialize. Can't be NULL.
- * @param chain Borrowed, read-only chain. Must outlive the context. Can't be
- *        NULL.
+ * @param chain Borrowed chain. Must outlive the context. Can't be NULL.
  * @param handle Borrowed handle populated during loading. Must outlive the
  *        context. Can't be NULL.
  * @return 0 on success, or a negative error value on failure.
  */
-int bf_codegen_new(struct bf_codegen **program, const struct bf_chain *chain,
+int bf_codegen_new(struct bf_codegen **program, struct bf_chain *chain,
                    struct bf_handle *handle);
 
 void bf_codegen_free(struct bf_codegen **program);

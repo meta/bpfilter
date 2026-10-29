@@ -286,7 +286,7 @@ static const struct bf_flavor_ops *bf_flavor_ops_get(enum bf_flavor flavor)
     return flavor_ops[flavor];
 }
 
-int bf_codegen_new(struct bf_codegen **program, const struct bf_chain *chain,
+int bf_codegen_new(struct bf_codegen **program, struct bf_chain *chain,
                    struct bf_handle *handle)
 {
     _free_bf_codegen_ struct bf_codegen *_program = NULL;
@@ -295,6 +295,11 @@ int bf_codegen_new(struct bf_codegen **program, const struct bf_chain *chain,
     assert(program);
     assert(chain);
     assert(handle);
+
+    // The chain's derived state can be stale: update it in the caller's chain.
+    r = bf_chain_validate_rules(chain);
+    if (r)
+        return r;
 
     _program = calloc(1, sizeof(*_program));
     if (!_program)
@@ -749,9 +754,8 @@ static int _bf_codegen_generate_rule(struct bf_codegen *program,
         // Fall through to next rule or default chain policy.
         break;
     default:
-        bf_abort("unsupported verdict, this should not happen: %d",
-                 rule->verdict);
-        break;
+        // The verdict comes from the caller's chain: it can be out of range.
+        return bf_err_r(-EINVAL, "unsupported verdict %d", rule->verdict);
     }
 
     r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_JMP_NEXT_RULE);

@@ -48,6 +48,9 @@ static void new_failure_preserves_inputs(void **state)
     _free_bf_chain_ struct bf_chain *chain = NULL;
     _free_bf_set_ struct bf_set *set = NULL;
     _free_bf_rule_ struct bf_rule *rule = NULL;
+    _free_bf_matcher_ struct bf_matcher *matcher = NULL;
+    const enum bf_matcher_type key = BF_MATCHER_IP4_SADDR;
+    struct bf_set *stored;
 
     (void)state;
 
@@ -67,6 +70,31 @@ static void new_failure_preserves_inputs(void **state)
     assert_int_equal(bf_list_size(&rules), 1);
     assert_non_null(
         bf_hashset_get(&sets, &(struct bf_set) {.name = "addresses"}));
+
+    // Validate set metadata even when there are no rules to inspect it.
+    stored = sets.head->data;
+
+    bf_list_clean(&rules);
+    ++stored->elem_size;
+    assert_int_equal(bf_chain_new(&chain, "test", BF_HOOK_XDP,
+                                  BF_VERDICT_ACCEPT, &sets, NULL),
+                     -EINVAL);
+    assert_null(chain);
+    assert_int_equal(bf_hashset_size(&sets), 1);
+
+    // An empty anonymous set disables its rule but still needs validation.
+    bf_hashset_clean(&sets);
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_matcher_new_for_anon_set(&matcher, &key, 1, NULL, 0, false));
+    memcpy(&stored, bf_matcher_payload(matcher), sizeof(stored));
+    ++stored->elem_size;
+    assert_ok(bf_list_push(&rule->matchers, (void **)&matcher));
+    assert_ok(bf_list_push(&rules, (void **)&rule));
+    assert_int_equal(bf_chain_new(&chain, "test", BF_HOOK_XDP,
+                                  BF_VERDICT_ACCEPT, NULL, &rules),
+                     -EINVAL);
+    assert_null(chain);
+    assert_int_equal(bf_list_size(&rules), 1);
 }
 
 static void pack_and_unpack(void **state)
@@ -464,6 +492,63 @@ static void apply_set_delta_updates_derived_state(void **state)
         bf_chain_apply_set_delta(chain, "set", invalid_delta, NULL), -EINVAL);
 }
 
+static void validate_rules_uses_current_content(void **state)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_set_ struct bf_set *set = NULL;
+    _free_bf_rule_ struct bf_rule *rule = NULL;
+    enum bf_matcher_type key[] = {BF_MATCHER_TCP_SPORT};
+    struct bf_set *set_ref;
+    struct bf_rule *rule_ref;
+    uint16_t port = htons(80);
+
+    const enum bf_hook invalid_hooks[] = {(enum bf_hook) - 1, _BF_HOOK_MAX};
+    const enum bf_verdict invalid_policies[] = {
+        (enum bf_verdict) - 1,
+        _BF_VERDICT_MAX,
+        BF_VERDICT_CONTINUE,
+        BF_VERDICT_REDIRECT,
+    };
+
+    (void)state;
+
+    assert_ok(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT, NULL,
+                           NULL));
+    assert_ok(bf_set_new(&set, "set", key, ARRAY_SIZE(key)));
+    set_ref = set;
+    assert_ok(bf_chain_add_set(chain, set));
+    TAKE_PTR(set);
+
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bft_rule_add_named_set_matcher(rule, set_ref, false));
+    rule_ref = rule;
+    assert_ok(bf_chain_add_rule(chain, rule));
+    TAKE_PTR(rule);
+    assert_true(rule_ref->disabled);
+
+    for (size_t i = 0; i < ARRAY_SIZE(invalid_hooks); ++i) {
+        chain->hook = invalid_hooks[i];
+        assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
+    }
+    chain->hook = BF_HOOK_XDP;
+
+    for (size_t i = 0; i < ARRAY_SIZE(invalid_policies); ++i) {
+        chain->policy = invalid_policies[i];
+        assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
+    }
+    chain->policy = BF_VERDICT_ACCEPT;
+
+    // Change the chain after the rule was added: the stored state is stale.
+    assert_ok(bf_set_add_elem(set_ref, &port));
+    rule_ref->log = BF_LOG_OPT_DEFAULT;
+    rule_ref->index = 1;
+
+    assert_ok(bf_chain_validate_rules(chain));
+    assert_false(rule_ref->disabled);
+    assert_int_equal(rule_ref->index, 0);
+    assert_int_equal(chain->flags, BF_FLAG(BF_CHAIN_LOG));
+}
+
 static void empty_set_only_disables_in_rules(void **state)
 {
     _free_bf_chain_ struct bf_chain *chain = NULL;
@@ -476,6 +561,16 @@ static void empty_set_only_disables_in_rules(void **state)
     enum bf_matcher_type key[] = {BF_MATCHER_TCP_SPORT};
 
     const struct bf_set *matcher_set = NULL;
+
+    struct bf_rule *checked_rules[2];
+    const enum bf_verdict invalid_verdicts[] = {
+        (enum bf_verdict) - 1,
+        _BF_VERDICT_MAX,
+    };
+    const enum bf_redirect_dir invalid_directions[] = {
+        (enum bf_redirect_dir) - 1,
+        _BF_REDIRECT_DIR_MAX,
+    };
 
     (void)state;
 
@@ -498,6 +593,23 @@ static void empty_set_only_disables_in_rules(void **state)
     assert_true(in_rule->disabled);
     // Rule containing a "not in" matcher with an empty set is not disabled
     assert_false(not_in_rule->disabled);
+
+    checked_rules[0] = in_rule;
+    checked_rules[1] = not_in_rule;
+    for (size_t i = 0; i < ARRAY_SIZE(checked_rules); ++i) {
+        for (size_t j = 0; j < ARRAY_SIZE(invalid_verdicts); ++j) {
+            checked_rules[i]->verdict = invalid_verdicts[j];
+            assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
+        }
+        checked_rules[i]->verdict = BF_VERDICT_ACCEPT;
+
+        for (size_t j = 0; j < ARRAY_SIZE(invalid_directions); ++j) {
+            checked_rules[i]->redirect_dir = invalid_directions[j];
+            assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
+        }
+        checked_rules[i]->redirect_dir = BF_REDIRECT_INGRESS;
+    }
+    assert_ok(bf_chain_validate_rules(chain));
 }
 
 static void incompatible_matchers_disable_rule(void **state)
@@ -874,6 +986,7 @@ int main(void)
         cmocka_unit_test(get_set_from_matcher),
         cmocka_unit_test(mixed_enabled_disabled_log_flag),
         cmocka_unit_test(apply_set_delta_updates_derived_state),
+        cmocka_unit_test(validate_rules_uses_current_content),
         cmocka_unit_test(empty_set_only_disables_in_rules),
         cmocka_unit_test(incompatible_matchers_disable_rule),
         cmocka_unit_test(sock_addr_log_flag),
