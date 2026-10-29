@@ -51,3 +51,6 @@ ${FROM_NS} ${BFCLI} chain set --from-str "chain chain_load_xdp_3 BF_HOOK_XDP ACC
 # --verbose bpf adds a check after the log ELF stub call
 ${FROM_NS} ${BFCLI} --verbose bpf chain set --from-str "chain chain_load_xdp_3 BF_HOOK_XDP ACCEPT rule ip4.proto icmp log link counter DROP"
 ${FROM_NS} ${BFCLI} --verbose bpf chain set --from-str "chain chain_load_xdp_3 BF_HOOK_XDP ACCEPT rule ip4.proto tcp log 5-tuple every 1s counter DROP"
+
+# log every <frequency> in a chain with more than one rule
+${FROM_NS} ${BFCLI} chain set --from-str "chain chain_load_xdp_3 BF_HOOK_XDP ACCEPT rule ip4.proto tcp counter ACCEPT rule ip4.proto icmp log every 1s counter DROP"
