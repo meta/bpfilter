@@ -56,6 +56,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/pack.c
     ${CMAKE_CURRENT_SOURCE_DIR}/rule.c
     ${CMAKE_CURRENT_SOURCE_DIR}/set.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/state.h                 ${CMAKE_CURRENT_SOURCE_DIR}/state.c
     ${CMAKE_CURRENT_SOURCE_DIR}/verdict.c
     ${CMAKE_CURRENT_SOURCE_DIR}/version.c
 
