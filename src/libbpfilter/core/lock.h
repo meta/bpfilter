@@ -165,7 +165,7 @@ struct bf_lock
     })
 
 /** Prefix for staging names used by I3. Callers that walk the pindir (e.g.
- * `bf_ctx_get_cgens`) must skip entries with this prefix.
+ * `bf_state_discover()`) must skip entries with this prefix.
  *
  * The prefix cannot start with a `.` because bpffs rejects `mkdir` for
  * names starting with a dot. It uses double underscore + "bf_staging_"

@@ -61,7 +61,6 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/version.c
 
     # Code generation engine
-    ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgen.h              ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgen.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_skb.h        ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_skb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_sock_addr.h  ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_sock_addr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/dump.h              ${CMAKE_CURRENT_SOURCE_DIR}/cgen/dump.c
