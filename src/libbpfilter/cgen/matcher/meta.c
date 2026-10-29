@@ -19,15 +19,15 @@
 #include <bpfilter/logger.h>
 #include <bpfilter/matcher.h>
 
+#include "cgen/codegen.h"
 #include "cgen/jmp.h"
 #include "cgen/matcher/cmp.h"
-#include "cgen/program.h"
 #include "cgen/runtime.h"
 #include "filter.h"
 
 /** @todo Add support for input and output interface filtering based on the
  * program's hook. */
-static int _bf_matcher_generate_meta_iface(struct bf_program *program,
+static int _bf_matcher_generate_meta_iface(struct bf_codegen *program,
                                            const struct bf_matcher *matcher)
 {
     EMIT(program,
@@ -40,7 +40,7 @@ static int _bf_matcher_generate_meta_iface(struct bf_program *program,
 }
 
 static int
-_bf_matcher_generate_meta_probability(struct bf_program *program,
+_bf_matcher_generate_meta_probability(struct bf_codegen *program,
                                       const struct bf_matcher *matcher)
 {
     float proba = *(float *)bf_matcher_payload(matcher);
@@ -67,7 +67,7 @@ _bf_matcher_generate_meta_probability(struct bf_program *program,
 }
 
 static int
-_bf_matcher_generate_meta_flow_probability(struct bf_program *program,
+_bf_matcher_generate_meta_flow_probability(struct bf_codegen *program,
                                            const struct bf_matcher *matcher)
 {
     float proba = *(float *)bf_matcher_payload(matcher);
@@ -119,7 +119,7 @@ _bf_matcher_generate_meta_flow_probability(struct bf_program *program,
     return 0;
 }
 
-int bf_matcher_generate_meta(struct bf_program *program,
+int bf_matcher_generate_meta(struct bf_codegen *program,
                              const struct bf_matcher *matcher)
 {
     switch (bf_matcher_get_type(matcher)) {

@@ -22,10 +22,10 @@
 #include <bpfilter/rule.h>
 #include <bpfilter/set.h>
 
+#include "cgen/codegen.h"
 #include "cgen/matcher/cmp.h"
 #include "cgen/matcher/meta.h"
 #include "cgen/matcher/set.h"
-#include "cgen/program.h"
 #include "cgen/runtime.h"
 #include "cgen/stub.h"
 #include "filter.h"
@@ -33,7 +33,7 @@
 /**
  * Packet matcher codegen follows a three-stage pipeline:
  *
- * 1. Protocol check: `_bf_program_generate_rule()` (in program.c) emits
+ * 1. Protocol check: `_bf_codegen_generate_rule()` (in codegen.c) emits
  *    deduplicated guards for protocol-specific matchers before the matcher
  *    loop, so each protocol-specific guard is emitted at most once per rule.
  *
@@ -64,7 +64,7 @@
  * @param reg BPF register to load the value into.
  * @return 0 on success, negative errno on error.
  */
-static int _bf_matcher_pkt_load_field(struct bf_program *program,
+static int _bf_matcher_pkt_load_field(struct bf_codegen *program,
                                       const struct bf_matcher_meta *meta,
                                       int reg)
 {
@@ -98,7 +98,7 @@ static int _bf_matcher_pkt_load_field(struct bf_program *program,
     return 0;
 }
 
-static int _bf_matcher_pkt_prepare_header(struct bf_program *program,
+static int _bf_matcher_pkt_prepare_header(struct bf_codegen *program,
                                           enum bf_matcher_type type,
                                           const struct bf_matcher_meta *meta)
 {
@@ -120,7 +120,7 @@ static int _bf_matcher_pkt_prepare_header(struct bf_program *program,
     }
 }
 
-static int _bf_matcher_pkt_load(struct bf_program *program,
+static int _bf_matcher_pkt_load(struct bf_codegen *program,
                                 const struct bf_matcher_meta *meta, int reg)
 {
     int r;
@@ -143,7 +143,7 @@ static int _bf_matcher_pkt_load(struct bf_program *program,
  * @param meta Matcher metadata describing field size and offset. Can't be NULL.
  * @return 0 on success, negative errno on error.
  */
-static int _bf_matcher_pkt_load_and_cmp(struct bf_program *program,
+static int _bf_matcher_pkt_load_and_cmp(struct bf_codegen *program,
                                         const struct bf_matcher *matcher,
                                         const struct bf_matcher_meta *meta)
 {
@@ -157,7 +157,7 @@ static int _bf_matcher_pkt_load_and_cmp(struct bf_program *program,
                         meta->hdr_payload_size, BPF_REG_1);
 }
 
-static int _bf_matcher_pkt_generate_net(struct bf_program *program,
+static int _bf_matcher_pkt_generate_net(struct bf_codegen *program,
                                         const struct bf_matcher *matcher,
                                         const struct bf_matcher_meta *meta)
 {
@@ -174,7 +174,7 @@ static int _bf_matcher_pkt_generate_net(struct bf_program *program,
                                meta->hdr_payload_size, BPF_REG_1);
 }
 
-static int _bf_matcher_pkt_generate_port(struct bf_program *program,
+static int _bf_matcher_pkt_generate_port(struct bf_codegen *program,
                                          const struct bf_matcher *matcher,
                                          const struct bf_matcher_meta *meta)
 {
@@ -204,7 +204,7 @@ static int _bf_matcher_pkt_generate_port(struct bf_program *program,
 }
 
 static int
-_bf_matcher_pkt_generate_tcp_flags(struct bf_program *program,
+_bf_matcher_pkt_generate_tcp_flags(struct bf_codegen *program,
                                    const struct bf_matcher *matcher,
                                    const struct bf_matcher_meta *meta)
 {
@@ -230,7 +230,7 @@ _bf_matcher_pkt_generate_tcp_flags(struct bf_program *program,
 }
 
 static int
-_bf_matcher_pkt_generate_ip6_nexthdr(struct bf_program *program,
+_bf_matcher_pkt_generate_ip6_nexthdr(struct bf_codegen *program,
                                      const struct bf_matcher *matcher)
 {
     const uint8_t ehdr = *(uint8_t *)bf_matcher_payload(matcher);
@@ -274,7 +274,7 @@ _bf_matcher_pkt_generate_ip6_nexthdr(struct bf_program *program,
     return 0;
 }
 
-static int _bf_matcher_pkt_generate_ip4_dscp(struct bf_program *program,
+static int _bf_matcher_pkt_generate_ip4_dscp(struct bf_codegen *program,
                                              const struct bf_matcher *matcher,
                                              const struct bf_matcher_meta *meta)
 {
@@ -298,7 +298,7 @@ static int _bf_matcher_pkt_generate_ip4_dscp(struct bf_program *program,
     return 0;
 }
 
-static int _bf_matcher_pkt_generate_ip6_dscp(struct bf_program *program,
+static int _bf_matcher_pkt_generate_ip6_dscp(struct bf_codegen *program,
                                              const struct bf_matcher *matcher,
                                              const struct bf_matcher_meta *meta)
 {
@@ -326,7 +326,7 @@ static int _bf_matcher_pkt_generate_ip6_dscp(struct bf_program *program,
     return 0;
 }
 
-static int _bf_matcher_pkt_generate_set(struct bf_program *program,
+static int _bf_matcher_pkt_generate_set(struct bf_codegen *program,
                                         const struct bf_matcher *matcher)
 {
     const struct bf_set *set;
@@ -383,7 +383,7 @@ static int _bf_matcher_pkt_generate_set(struct bf_program *program,
     return bf_set_generate_map_lookup(program, matcher, BF_PROG_SCR_OFF(0));
 }
 
-int bf_packet_gen_inline_matcher(struct bf_program *program,
+int bf_packet_gen_inline_matcher(struct bf_codegen *program,
                                  const struct bf_matcher *matcher)
 {
     const struct bf_matcher_meta *meta;
@@ -444,7 +444,7 @@ int bf_packet_gen_inline_matcher(struct bf_program *program,
     }
 }
 
-int bf_packet_gen_inline_log(struct bf_program *program,
+int bf_packet_gen_inline_log(struct bf_codegen *program,
                              const struct bf_rule *rule)
 {
     assert(program);

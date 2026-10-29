@@ -47,7 +47,7 @@
  * similarly to @c switch , at least to my non-native speak ear.
  */
 
-struct bf_program;
+struct bf_codegen;
 
 /// Cleanup attribute for a @ref bf_swich variable.
 #define _clean_bf_swich_ __attribute__((cleanup(bf_swich_cleanup)))
@@ -55,7 +55,7 @@ struct bf_program;
 /**
  * Create, initialize, and return a new @ref bf_swich object.
  *
- * @param program @ref bf_program object to create the switch in.
+ * @param program @ref bf_codegen object to create the switch in.
  * @param reg Register to use to compare the cases values to.
  * @return A new @ref bf_swich object.
  */
@@ -109,7 +109,7 @@ struct bf_program;
 struct bf_swich
 {
     /// Program to generate the switch-case in.
-    struct bf_program *program;
+    struct bf_codegen *program;
     /// Register to compare to the various cases of the switch.
     int reg;
     /// List of options (cases) for the switch.
@@ -122,12 +122,12 @@ struct bf_swich
  * Initialise a @ref bf_swich object.
  *
  * @param swich @ref bf_swich object to initialize, can't be NULL.
- * @param program @ref bf_program object to generate the switch-case for. Can't
+ * @param program @ref bf_codegen object to generate the switch-case for. Can't
  *        be NULL.
  * @param reg Register to compare to the cases of the switch.
  * @return 0 on success, or negative errno value on failure.
  */
-int bf_swich_init(struct bf_swich *swich, struct bf_program *program, int reg);
+int bf_swich_init(struct bf_swich *swich, struct bf_codegen *program, int reg);
 
 /**
  * Cleanup a @ref bf_swich object.
