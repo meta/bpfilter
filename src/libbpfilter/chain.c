@@ -159,6 +159,7 @@ static int _bf_rule_has_incompatible_matchers(const struct bf_chain *chain,
 static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
 {
     const uint8_t tuple = BF_FLAG(BF_LOG_OPT_5_TUPLE);
+    bool uses_nexthdr = false;
     int r;
 
     assert(rule);
@@ -167,14 +168,6 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
     if (r < 0)
         return r;
     rule->disabled = r;
-
-    if (!rule->disabled) {
-        r = _bf_rule_has_incompatible_matchers(chain, rule);
-        if (r < 0)
-            return r;
-
-        rule->disabled = r;
-    }
 
     if (rule->log != BF_LOG_OPT_DEFAULT && (rule->log & tuple) &&
         rule->log != tuple) {
@@ -191,12 +184,6 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
             bf_hook_to_str(chain->hook));
     }
 
-    if (rule->log && !rule->disabled)
-        chain->flags |= BF_FLAG(BF_CHAIN_LOG);
-
-    if (rule->log && rule->log_rate_ns && !rule->disabled)
-        chain->flags |= BF_FLAG(BF_CHAIN_LOG_RATELIMIT);
-
     if (bf_rule_mark_is_set(rule) &&
         bf_hook_to_flavor(chain->hook) != BF_FLAVOR_TC &&
         bf_hook_to_flavor(chain->hook) != BF_FLAVOR_CGROUP_SKB) {
@@ -208,10 +195,8 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
         struct bf_matcher *matcher = bf_list_node_get_data(matcher_node);
         const struct bf_matcher_meta *meta;
 
-        // Track if the chain uses IPv6 nexthdr matcher.
-        if (bf_matcher_get_type(matcher) == BF_MATCHER_IP6_NEXTHDR &&
-            !rule->disabled)
-            chain->flags |= BF_FLAG(BF_CHAIN_STORE_NEXTHDR);
+        if (bf_matcher_get_type(matcher) == BF_MATCHER_IP6_NEXTHDR)
+            uses_nexthdr = true;
 
         // Ensure the matcher is compatible with the chain's hook.
         meta = bf_matcher_get_meta(bf_matcher_get_type(matcher));
@@ -236,6 +221,12 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
                                 rule->index);
             }
 
+            if (bf_set_is_anonymous(set)) {
+                r = bf_set_validate(set);
+                if (r)
+                    return r;
+            }
+
             for (size_t i = 0; i < set->n_comps; ++i) {
                 const struct bf_matcher_meta *comp_meta =
                     bf_matcher_get_meta(set->key[i]);
@@ -256,20 +247,59 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
         }
     }
 
+    if (!rule->disabled) {
+        r = _bf_rule_has_incompatible_matchers(chain, rule);
+        if (r < 0)
+            return r;
+
+        rule->disabled = r;
+    }
+
+    if (rule->log && !rule->disabled)
+        chain->flags |= BF_FLAG(BF_CHAIN_LOG);
+
+    if (rule->log && rule->log_rate_ns && !rule->disabled)
+        chain->flags |= BF_FLAG(BF_CHAIN_LOG_RATELIMIT);
+
+    if (uses_nexthdr && !rule->disabled)
+        chain->flags |= BF_FLAG(BF_CHAIN_STORE_NEXTHDR);
+
     return 0;
 }
 
-static int _bf_chain_validate_rules(struct bf_chain *chain)
+int bf_chain_validate_rules(struct bf_chain *chain)
 {
+    uint32_t index = 0;
     int r;
 
     assert(chain);
+
+    if ((unsigned int)chain->hook >= _BF_HOOK_MAX)
+        return bf_err_r(-EINVAL, "unknown hook type");
+
+    if (!bf_verdict_is_valid_policy(chain->policy)) {
+        return bf_err_r(-EINVAL, "invalid policy '%s'",
+                        bf_verdict_to_str(chain->policy));
+    }
+
+    bf_hashset_foreach (&chain->sets, set_node) {
+        r = bf_set_validate(set_node->data);
+        if (r)
+            return r;
+    }
 
     chain->flags = 0;
 
     bf_list_foreach (&chain->rules, rule_node) {
         struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
+        if ((unsigned int)rule->verdict >= _BF_VERDICT_MAX ||
+            (unsigned int)rule->redirect_dir >= _BF_REDIRECT_DIR_MAX) {
+            return bf_err_r(-EINVAL,
+                            "invalid rule verdict or redirect direction");
+        }
+
+        rule->index = index++;
         r = _bf_chain_check_rule(chain, rule);
         if (r)
             return r;
@@ -282,7 +312,6 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
                  enum bf_verdict policy, bf_hashset *sets, bf_list *rules)
 {
     _free_bf_chain_ struct bf_chain *_chain = NULL;
-    size_t ridx = 0;
     int r;
 
     assert(chain && name);
@@ -319,13 +348,8 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
     _chain->rules = bf_list_default(bf_rule_free, bf_rule_pack);
     if (rules)
         _chain->rules = bf_list_move(rules);
-    bf_list_foreach (&_chain->rules, rule_node) {
-        struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
-        rule->index = ridx++;
-    }
-
-    r = _bf_chain_validate_rules(_chain);
+    r = bf_chain_validate_rules(_chain);
     if (r) {
         if (rules)
             *rules = bf_list_move(&_chain->rules);
@@ -594,7 +618,7 @@ int bf_chain_apply_set_delta(struct bf_chain *chain, const char *set_name,
             return bf_err_r(r, "failed to calculate set difference");
     }
 
-    r = _bf_chain_validate_rules(chain);
+    r = bf_chain_validate_rules(chain);
     if (r)
         return bf_err_r(r, "failed to validate chain after set update");
 

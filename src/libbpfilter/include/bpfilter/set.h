@@ -99,6 +99,15 @@ bool bf_set_is_anonymous(const struct bf_set *set);
 bf_hashset bf_set_hashset_default(void);
 
 /**
+ * @brief Validate a set's key layout and element size without modifying it.
+ *
+ * @param set Set to validate. Can't be NULL.
+ * @return 0 on success, or a negative errno value for an invalid component
+ *         count, unsupported key, or inconsistent element size.
+ */
+int bf_set_validate(const struct bf_set *set);
+
+/**
  * @brief Allocate and initialise a new set.
  *
  * @param set Set to allocate and initialise. Can't be NULL.

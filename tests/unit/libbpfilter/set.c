@@ -108,6 +108,10 @@ static void new_with_multiple_keys(void **state)
     assert_int_equal(set->n_comps, 2);
     assert_int_equal(set->key[0], BF_MATCHER_IP4_DADDR);
     assert_int_equal(set->key[1], BF_MATCHER_TCP_SPORT);
+    assert_ok(bf_set_validate(set));
+
+    set->key[0] = BF_MATCHER_IP4_SNET;
+    assert_int_equal(bf_set_validate(set), -EINVAL);
 }
 
 static void new_with_invalid_params(void **state)
@@ -115,6 +119,11 @@ static void new_with_invalid_params(void **state)
     _free_bf_set_ struct bf_set *set = NULL;
 
     enum bf_matcher_type key[] = {BF_MATCHER_IP4_SADDR};
+    const enum bf_matcher_type invalid_keys[] = {
+        (enum bf_matcher_type) - 1,
+        _BF_MATCHER_TYPE_MAX,
+        BF_MATCHER_META_PROBABILITY,
+    };
 
     (void)state;
 
@@ -126,6 +135,26 @@ static void new_with_invalid_params(void **state)
     for (size_t i = 0; i <= BF_SET_MAX_N_COMPS; ++i)
         large_key[i] = BF_MATCHER_IP4_SADDR;
     assert_err(bf_set_new(&set, "test", large_key, BF_SET_MAX_N_COMPS + 1));
+
+    assert_ok(bf_set_new(&set, "test", key, ARRAY_SIZE(key)));
+    assert_ok(bf_set_validate(set));
+
+    set->n_comps = 0;
+    assert_int_equal(bf_set_validate(set), -EINVAL);
+    set->n_comps = BF_SET_MAX_N_COMPS + 1;
+    assert_int_equal(bf_set_validate(set), -E2BIG);
+    set->n_comps = ARRAY_SIZE(key);
+
+    for (size_t i = 0; i < ARRAY_SIZE(invalid_keys); ++i) {
+        set->key[0] = invalid_keys[i];
+        assert_int_equal(bf_set_validate(set), -ENOTSUP);
+    }
+    set->key[0] = key[0];
+
+    ++set->elem_size;
+    assert_int_equal(bf_set_validate(set), -EINVAL);
+    --set->elem_size;
+    assert_ok(bf_set_validate(set));
 }
 
 static void new_with_trie_key(void **state)
@@ -139,6 +168,7 @@ static void new_with_trie_key(void **state)
     // Network matchers should enable trie
     assert_ok(bf_set_new(&set, "trie_set", key, ARRAY_SIZE(key)));
     assert_true(set->use_trie);
+    assert_ok(bf_set_validate(set));
 }
 
 static void new_with_invalid_network_combination(void **state)

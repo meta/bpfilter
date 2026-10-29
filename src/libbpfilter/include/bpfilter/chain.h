@@ -138,6 +138,20 @@ void bf_chain_dump(const struct bf_chain *chain, prefix_t *prefix);
 int bf_chain_add_rule(struct bf_chain *chain, struct bf_rule *rule);
 
 /**
+ * @brief Validate the chain's rules and update their derived state.
+ *
+ * Rules added with `bf_chain_add_rule()` get their derived state when they
+ * are added, so later changes to the chain can make it stale. This function
+ * recomputes `bf_rule::index`, `bf_rule::disabled`, and `bf_chain::flags`
+ * from the chain's current content.
+ *
+ * @param chain Chain to validate. Can't be NULL.
+ * @return 0 on success, or a negative errno value if a rule is invalid for
+ *         the chain.
+ */
+int bf_chain_validate_rules(struct bf_chain *chain);
+
+/**
  * @brief Insert a named set into a chain.
  *
  * The chain will own the set and is responsible for freeing it. To reference

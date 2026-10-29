@@ -96,17 +96,15 @@ bool bf_set_is_anonymous(const struct bf_set *set)
     return !set->name;
 }
 
-int bf_set_new(struct bf_set **set, const char *name,
-               const enum bf_matcher_type *key, size_t n_comps)
+/** Validate a key and calculate its element size without allocating a set. */
+static int _bf_set_key_size(const enum bf_matcher_type *key, size_t n_comps,
+                            size_t *elem_size)
 {
-    _free_bf_set_ struct bf_set *_set = NULL;
     uint64_t mask = 0;
+    size_t size = 0;
 
-    assert(set);
     assert(key);
-
-    if (name && !bf_set_is_valid_name(name))
-        return bf_err_r(-EINVAL, "invalid set name '%s'", name);
+    assert(elem_size);
 
     if (n_comps == 0)
         return bf_err_r(-EINVAL, "at least 1 key component is required");
@@ -116,6 +114,65 @@ int bf_set_new(struct bf_set **set, const char *name,
                         "a set key can't contain more than %d components",
                         BF_SET_MAX_N_COMPS);
     }
+
+    for (size_t i = 0; i < n_comps; ++i) {
+        const struct bf_matcher_ops *ops;
+
+        ops = bf_matcher_get_ops(key[i], BF_MATCHER_IN);
+        if (!ops) {
+            return bf_err_r(-ENOTSUP,
+                            "matcher '%s' (%d) is not supported as a set key",
+                            bf_matcher_type_to_str(key[i]), key[i]);
+        }
+        size += ops->ref_payload_size;
+
+        mask |= BF_FLAG(key[i]);
+    }
+
+    if (n_comps > 1 && mask & _BF_SET_USE_TRIE_MASK) {
+        return bf_err_r(
+            -EINVAL,
+            "network matchers can't be used in combination with other matchers in a set");
+    }
+
+    *elem_size = size;
+
+    return 0;
+}
+
+int bf_set_validate(const struct bf_set *set)
+{
+    size_t elem_size;
+    int r;
+
+    assert(set);
+
+    r = _bf_set_key_size(set->key, set->n_comps, &elem_size);
+    if (r)
+        return r;
+
+    if (set->elem_size != elem_size)
+        return bf_err_r(-EINVAL, "set element size does not match its key");
+
+    return 0;
+}
+
+int bf_set_new(struct bf_set **set, const char *name,
+               const enum bf_matcher_type *key, size_t n_comps)
+{
+    _free_bf_set_ struct bf_set *_set = NULL;
+    size_t elem_size;
+    int r;
+
+    assert(set);
+    assert(key);
+
+    if (name && !bf_set_is_valid_name(name))
+        return bf_err_r(-EINVAL, "invalid set name '%s'", name);
+
+    r = _bf_set_key_size(key, n_comps, &elem_size);
+    if (r)
+        return r;
 
     _set = calloc(1, sizeof(*_set));
     if (!_set)
@@ -129,31 +186,10 @@ int bf_set_new(struct bf_set **set, const char *name,
 
     memcpy(&_set->key, key, n_comps * sizeof(enum bf_matcher_type));
     _set->n_comps = n_comps;
-    _set->elem_size = 0;
+    _set->elem_size = elem_size;
     _set->min_size = 0;
+    _set->use_trie = n_comps == 1 && (BF_FLAG(key[0]) & _BF_SET_USE_TRIE_MASK);
     bf_hashset_init(&_set->elems, &_bf_set_elem_ops, &_set->elem_size);
-
-    for (size_t i = 0; i < n_comps; ++i) {
-        const struct bf_matcher_ops *ops;
-
-        ops = bf_matcher_get_ops(_set->key[i], BF_MATCHER_IN);
-        if (!ops) {
-            return bf_err_r(-ENOTSUP,
-                            "matcher '%s' (%d) is not supported as a set key",
-                            bf_matcher_type_to_str(_set->key[i]), _set->key[i]);
-        }
-        _set->elem_size += ops->ref_payload_size;
-
-        mask |= BF_FLAG(_set->key[i]);
-    }
-
-    _set->use_trie = n_comps == 1 && mask & _BF_SET_USE_TRIE_MASK;
-
-    if (n_comps > 1 && mask & _BF_SET_USE_TRIE_MASK) {
-        return bf_err_r(
-            -EINVAL,
-            "network matchers can't be used in combination with other matchers in a set");
-    }
 
     *set = TAKE_PTR(_set);
 
