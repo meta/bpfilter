@@ -113,13 +113,22 @@ static struct bf_btf *_bf_map_make_btf(const struct bf_map *map)
         btf__add_field(kbtf, "count", 1, 0, 0);
         btf__add_field(kbtf, "size", 1, 64, 0);
         break;
-    case BF_MAP_TYPE_STATE:
+    case BF_MAP_TYPE_STATE: {
+        int u32_id;
+        int rule_state_id;
+
+        // The map's single value holds one bf_rule_state per rule
         btf__add_int(kbtf, "u64", 8, 0);
-        btf->key_type_id = btf__add_int(kbtf, "u32", 4, 0);
-        btf->value_type_id = btf__add_struct(kbtf, "bf_rule_state",
-                                             sizeof(struct bf_rule_state));
+        u32_id = btf__add_int(kbtf, "u32", 4, 0);
+        rule_state_id = btf__add_struct(kbtf, "bf_rule_state",
+                                        sizeof(struct bf_rule_state));
         btf__add_field(kbtf, "last_log_ts", 1, 0, 0);
+        btf->key_type_id = u32_id;
+        btf->value_type_id =
+            btf__add_array(kbtf, u32_id, rule_state_id,
+                           map->value_size / sizeof(struct bf_rule_state));
         break;
+    }
     case BF_MAP_TYPE_PRINTER:
     case BF_MAP_TYPE_SET:
     case BF_MAP_TYPE_LOG:
