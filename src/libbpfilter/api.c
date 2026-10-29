@@ -22,6 +22,7 @@
 #include "cgen/prog/link.h"
 #include "cgen/prog/map.h"
 #include "core/lock.h"
+#include "state.h"
 
 static int copy_hookopts(struct bf_hookopts **dest,
                          const struct bf_hookopts *src)
@@ -43,6 +44,14 @@ static int copy_hookopts(struct bf_hookopts **dest,
     *dest = copy;
 
     return 0;
+}
+
+static void _bf_chain_unload(struct bf_handle *handle, struct bf_lock *lock)
+{
+    // The lock cleanup removes an empty chain directory under a WRITE lock.
+    unlinkat(lock->chain_fd, BF_STATE_PIN_NAME, 0);
+    bf_handle_unpin(handle, lock);
+    bf_handle_unload(handle);
 }
 
 /**
@@ -276,8 +285,8 @@ int bf_chain_get(const char *name, struct bf_chain **chain,
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
     _free_bf_chain_ struct bf_chain *_chain = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
     _free_bf_hookopts_ struct bf_hookopts *_hookopts = NULL;
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
     int r;
 
     assert(name);
@@ -288,21 +297,16 @@ int bf_chain_get(const char *name, struct bf_chain **chain,
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &_chain, &handle);
     if (r)
         return r;
 
-    r = bf_cgen_load_counters(cgen);
-    if (r) {
-        return bf_err_r(r, "failed to load counters for '%s'",
-                        cgen->chain->name);
-    }
+    r = bf_handle_load_counters(handle, _chain);
+    if (r)
+        return bf_err_r(r, "failed to load counters for '%s'", _chain->name);
 
-    // cgen will be destroyed, we can steal the chain
-    _chain = TAKE_PTR(cgen->chain);
-
-    if (cgen->handle->link && cgen->handle->link->hookopts) {
-        r = copy_hookopts(&_hookopts, cgen->handle->link->hookopts);
+    if (handle->link && handle->link->hookopts) {
+        r = copy_hookopts(&_hookopts, handle->link->hookopts);
         if (r)
             return r;
     }
@@ -316,7 +320,8 @@ int bf_chain_get(const char *name, struct bf_chain **chain,
 int bf_chain_prog_fd(const char *name)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
     int r;
 
     assert(name);
@@ -325,20 +330,21 @@ int bf_chain_prog_fd(const char *name)
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &chain, &handle);
     if (r)
         return r;
 
-    if (cgen->handle->prog_fd == -1)
+    if (handle->prog_fd == -1)
         return bf_err_r(-ENODEV, "chain '%s' has no loaded program", name);
 
-    return dup(cgen->handle->prog_fd);
+    return dup(handle->prog_fd);
 }
 
 int bf_chain_logs_fd(const char *name)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
     int r;
 
     assert(name);
@@ -347,14 +353,14 @@ int bf_chain_logs_fd(const char *name)
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &chain, &handle);
     if (r)
         return r;
 
-    if (!cgen->handle->lmap)
+    if (!handle->lmap)
         return bf_err_r(-ENOENT, "chain '%s' has no logs buffer", name);
 
-    return dup(cgen->handle->lmap->fd);
+    return dup(handle->lmap->fd);
 }
 
 int bf_chain_load(struct bf_chain *chain)
@@ -389,7 +395,8 @@ int bf_chain_load(struct bf_chain *chain)
 int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
     _free_bf_hookopts_ struct bf_hookopts *hookopts_copy = NULL;
     int r;
 
@@ -400,14 +407,14 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts)
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &chain, &handle);
     if (r)
         return r;
 
-    if (cgen->handle->link)
+    if (handle->link)
         return bf_err_r(-EBUSY, "chain '%s' is already linked to a hook", name);
 
-    r = bf_hookopts_validate(hookopts, cgen->chain->hook);
+    r = bf_hookopts_validate(hookopts, chain->hook);
     if (r)
         return bf_err_r(r, "failed to validate hook options");
 
@@ -415,9 +422,25 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts)
     if (r)
         return r;
 
-    r = bf_cgen_attach(cgen, &hookopts_copy, &lock);
+    bf_info("attaching %s to %s", chain->name, bf_hook_to_str(chain->hook));
+    bf_hookopts_dump(hookopts_copy, EMPTY_PREFIX);
+
+    r = bf_handle_attach(handle, chain->hook, &hookopts_copy);
     if (r)
-        return bf_err_r(r, "failed to attach codegen to hook");
+        return bf_err_r(r, "failed to attach chain '%s'", name);
+
+    r = bf_link_pin(handle->link, &lock);
+    if (r) {
+        bf_handle_detach(handle);
+        return r;
+    }
+
+    r = bf_state_persist(&lock, chain, handle);
+    if (r) {
+        bf_link_unpin(handle->link, &lock);
+        bf_handle_detach(handle);
+        return bf_err_r(r, "failed to persist chain '%s'", name);
+    }
 
     return 0;
 }
@@ -499,7 +522,8 @@ int bf_chain_update_set(const char *name, const struct bf_set *to_add,
 int bf_chain_flush(const char *name)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
     int r;
 
     assert(name);
@@ -511,11 +535,11 @@ int bf_chain_flush(const char *name)
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &chain, &handle);
     if (r)
         return r;
 
-    bf_cgen_unload(cgen, &lock);
+    _bf_chain_unload(handle, &lock);
 
     return 0;
 }
