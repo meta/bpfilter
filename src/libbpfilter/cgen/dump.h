@@ -8,12 +8,12 @@
 /**
  * @file dump.h
  *
- * @ref bf_program_dump_bytecode is defined to pretty-print the BPF bytecode
- * from a @ref bf_program structure. The logic used here is inspired by
+ * @ref bf_codegen_dump_bytecode is defined to pretty-print the BPF bytecode
+ * from a @ref bf_codegen structure. The logic used here is inspired by
  * bpftool's dumper (https://github.com/libbpf/bpftool) with all the heavy
  * lifting performed by Linux @c kernel/bpf/disasm.c .
  */
 
-struct bf_program;
+struct bf_codegen;
 
-void bf_program_dump_bytecode(const struct bf_program *program);
+void bf_codegen_dump_bytecode(const struct bf_codegen *program);

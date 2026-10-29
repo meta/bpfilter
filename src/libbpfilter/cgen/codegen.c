@@ -3,7 +3,7 @@
  * Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
  */
 
-#include "cgen/program.h"
+#include "cgen/codegen.h"
 
 #include <linux/bpf.h>
 #include <linux/bpf_common.h>
@@ -95,7 +95,7 @@ static inline size_t _bf_round_next_power_of_2(size_t value)
  * value.
  *
  * LPM trie sets are never grouped together: each non-empty trie set gets
- * its own group of size 1. See `_bf_program_build_set_groups()` for the
+ * its own group of size 1. See `_bf_codegen_build_set_groups()` for the
  * rationale.
  */
 struct bf_set_group
@@ -106,8 +106,8 @@ struct bf_set_group
      * Never empty. */
     bf_list sets;
 
-    /** Backing BPF map. Populated during `bf_program_load()`; the map is
-     * owned by `bf_program->handle->sets`. */
+    /** Backing BPF map. Populated during `bf_codegen_load()`; the map is
+     * owned by `bf_codegen->handle->sets`. */
     struct bf_map *map;
 };
 
@@ -145,7 +145,7 @@ static int _bf_set_group_new(struct bf_set_group **group)
 }
 
 static struct bf_set_group *
-_bf_program_find_set_group(const struct bf_program *program,
+_bf_codegen_find_set_group(const struct bf_codegen *program,
                            const struct bf_set *set)
 {
     assert(program);
@@ -164,7 +164,7 @@ _bf_program_find_set_group(const struct bf_program *program,
     return NULL;
 }
 
-static int _bf_program_add_set_to_group(struct bf_program *program,
+static int _bf_codegen_add_set_to_group(struct bf_codegen *program,
                                         const struct bf_set *set)
 {
     _free_bf_set_group_ struct bf_set_group *group = NULL;
@@ -210,7 +210,7 @@ static int _bf_program_add_set_to_group(struct bf_program *program,
     return 0;
 }
 
-static int _bf_program_build_set_groups(struct bf_program *program)
+static int _bf_codegen_build_set_groups(struct bf_codegen *program)
 {
     assert(program);
 
@@ -218,7 +218,7 @@ static int _bf_program_build_set_groups(struct bf_program *program)
     program->set_groups = bf_list_default(_bf_set_group_free, NULL);
 
     bf_hashset_foreach (&program->runtime.chain->sets, set_node) {
-        int r = _bf_program_add_set_to_group(program, set_node->data);
+        int r = _bf_codegen_add_set_to_group(program, set_node->data);
         if (r)
             return r;
     }
@@ -239,7 +239,7 @@ static int _bf_program_build_set_groups(struct bf_program *program)
             if (!bf_set_is_anonymous(set))
                 continue;
 
-            r = _bf_program_add_set_to_group(program, set);
+            r = _bf_codegen_add_set_to_group(program, set);
             if (r)
                 return r;
         }
@@ -248,7 +248,7 @@ static int _bf_program_build_set_groups(struct bf_program *program)
     return 0;
 }
 
-int bf_program_set_bit_index(const struct bf_program *program,
+int bf_codegen_set_bit_index(const struct bf_codegen *program,
                              const struct bf_set *set, size_t *bit_index)
 {
     assert(program);
@@ -286,10 +286,10 @@ static const struct bf_flavor_ops *bf_flavor_ops_get(enum bf_flavor flavor)
     return flavor_ops[flavor];
 }
 
-int bf_program_new(struct bf_program **program, const struct bf_chain *chain,
+int bf_codegen_new(struct bf_codegen **program, const struct bf_chain *chain,
                    struct bf_handle *handle)
 {
-    _free_bf_program_ struct bf_program *_program = NULL;
+    _free_bf_codegen_ struct bf_codegen *_program = NULL;
     int r;
 
     assert(program);
@@ -321,7 +321,7 @@ int bf_program_new(struct bf_program **program, const struct bf_chain *chain,
     return 0;
 }
 
-void bf_program_free(struct bf_program **program)
+void bf_codegen_free(struct bf_codegen **program)
 {
     assert(program);
 
@@ -338,12 +338,12 @@ void bf_program_free(struct bf_program **program)
     *program = NULL;
 }
 
-void bf_program_dump(const struct bf_program *program, prefix_t *prefix)
+void bf_codegen_dump(const struct bf_codegen *program, prefix_t *prefix)
 {
     assert(program);
     assert(prefix);
 
-    DUMP(prefix, "struct bf_program at %p", program);
+    DUMP(prefix, "struct bf_codegen at %p", program);
 
     bf_dump_prefix_push(prefix);
 
@@ -408,7 +408,7 @@ void bf_program_dump(const struct bf_program *program, prefix_t *prefix)
     bf_dump_prefix_pop(prefix);
 }
 
-static void _bf_program_fixup_insn(struct bpf_insn *insn,
+static void _bf_codegen_fixup_insn(struct bpf_insn *insn,
                                    enum bf_fixup_insn type, int32_t value)
 {
     switch (type) {
@@ -429,7 +429,7 @@ static void _bf_program_fixup_insn(struct bpf_insn *insn,
     }
 }
 
-static int _bf_program_fixup(struct bf_program *program,
+static int _bf_codegen_fixup(struct bf_codegen *program,
                              enum bf_fixup_type type)
 {
     assert(program);
@@ -475,7 +475,7 @@ static int _bf_program_fixup(struct bf_program *program,
             break;
         case BF_FIXUP_TYPE_SET_MAP_FD: {
             const struct bf_set_group *group =
-                _bf_program_find_set_group(program, fixup->attr.set_ptr);
+                _bf_codegen_find_set_group(program, fixup->attr.set_ptr);
             if (!group || !group->map) {
                 return bf_err_r(
                     -ENOENT, "set map fixup: set '%s' not in any loaded group",
@@ -501,14 +501,14 @@ static int _bf_program_fixup(struct bf_program *program,
             break;
         }
 
-        _bf_program_fixup_insn(insn, insn_type, value);
+        _bf_codegen_fixup_insn(insn, insn_type, value);
         bf_list_delete(&program->fixups, fixup_node);
     }
 
     return 0;
 }
 
-static int _bf_program_check_proto(struct bf_program *program,
+static int _bf_codegen_check_proto(struct bf_codegen *program,
                                    enum bf_matcher_type type,
                                    uint32_t *checked_layers)
 {
@@ -536,7 +536,7 @@ static int _bf_program_check_proto(struct bf_program *program,
     return 0;
 }
 
-static int _bf_program_generate_log(struct bf_program *program,
+static int _bf_codegen_generate_log(struct bf_codegen *program,
                                     const struct bf_rule *rule)
 {
     _clean_bf_jmpctx_ struct bf_jmpctx l3_ctx = bf_jmpctx_default();
@@ -628,7 +628,7 @@ static int _bf_program_generate_log(struct bf_program *program,
  * @param matcher Matcher to check. Can't be NULL.
  * @return True if no bytecode is needed for the matcher, false otherwise.
  */
-static bool _bf_program_matcher_is_noop(const struct bf_program *program,
+static bool _bf_codegen_matcher_is_noop(const struct bf_codegen *program,
                                         const struct bf_matcher *matcher)
 {
     assert(program);
@@ -647,7 +647,7 @@ static bool _bf_program_matcher_is_noop(const struct bf_program *program,
     return false;
 }
 
-static int _bf_program_generate_rule(struct bf_program *program,
+static int _bf_codegen_generate_rule(struct bf_codegen *program,
                                      struct bf_rule *rule)
 {
     uint32_t checked_layers = 0;
@@ -675,11 +675,11 @@ static int _bf_program_generate_rule(struct bf_program *program,
             }
 
             for (size_t i = 0; i < set->n_comps && !r; ++i) {
-                r = _bf_program_check_proto(program, set->key[i],
+                r = _bf_codegen_check_proto(program, set->key[i],
                                             &checked_layers);
             }
         } else {
-            r = _bf_program_check_proto(program, bf_matcher_get_type(matcher),
+            r = _bf_codegen_check_proto(program, bf_matcher_get_type(matcher),
                                         &checked_layers);
         }
 
@@ -690,7 +690,7 @@ static int _bf_program_generate_rule(struct bf_program *program,
     bf_list_foreach (&rule->matchers, matcher_node) {
         struct bf_matcher *matcher = bf_list_node_get_data(matcher_node);
 
-        if (_bf_program_matcher_is_noop(program, matcher))
+        if (_bf_codegen_matcher_is_noop(program, matcher))
             continue;
 
         r = program->runtime.ops->gen_inline_matcher(program, matcher);
@@ -713,7 +713,7 @@ static int _bf_program_generate_rule(struct bf_program *program,
         }
     }
 
-    r = _bf_program_generate_log(program, rule);
+    r = _bf_codegen_generate_log(program, rule);
     if (r)
         return r;
 
@@ -754,14 +754,14 @@ static int _bf_program_generate_rule(struct bf_program *program,
         break;
     }
 
-    r = _bf_program_fixup(program, BF_FIXUP_TYPE_JMP_NEXT_RULE);
+    r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_JMP_NEXT_RULE);
     if (r)
         return bf_err_r(r, "failed to generate next rule fixups");
 
     return 0;
 }
 
-static int _bf_program_generate_elfstubs(struct bf_program *program)
+static int _bf_codegen_generate_elfstubs(struct bf_codegen *program)
 {
     const struct bf_elfstub *elfstub;
     size_t start_at;
@@ -791,7 +791,7 @@ static int _bf_program_generate_elfstubs(struct bf_program *program)
         start_at = program->img.size;
 
         for (size_t i = 0; i < elfstub->ninsns; ++i) {
-            r = bf_program_emit(program, elfstub->insns[i]);
+            r = bf_codegen_emit(program, elfstub->insns[i]);
             if (r)
                 return bf_err_r(r, "failed to insert ELF stub instruction");
         }
@@ -840,7 +840,7 @@ static int _bf_program_generate_elfstubs(struct bf_program *program)
     return 0;
 }
 
-int bf_program_emit_kfunc_call(struct bf_program *program, const char *name)
+int bf_codegen_emit_kfunc_call(struct bf_codegen *program, const char *name)
 {
     int r;
 
@@ -860,7 +860,7 @@ int bf_program_emit_kfunc_call(struct bf_program *program, const char *name)
     return 0;
 }
 
-int bf_program_emit_fixup(struct bf_program *program, enum bf_fixup_type type,
+int bf_codegen_emit_fixup(struct bf_codegen *program, enum bf_fixup_type type,
                           struct bpf_insn insn, const union bf_fixup_attr *attr)
 {
     _free_bf_fixup_ struct bf_fixup *fixup = NULL;
@@ -883,7 +883,7 @@ int bf_program_emit_fixup(struct bf_program *program, enum bf_fixup_type type,
     return 0;
 }
 
-int bf_program_emit_fixup_elfstub(struct bf_program *program,
+int bf_codegen_emit_fixup_elfstub(struct bf_codegen *program,
                                   enum bf_elfstub_id id)
 {
     _free_bf_fixup_ struct bf_fixup *fixup = NULL;
@@ -909,13 +909,13 @@ int bf_program_emit_fixup_elfstub(struct bf_program *program,
     return 0;
 }
 
-int bf_program_generate(struct bf_program *program)
+int bf_codegen_generate(struct bf_codegen *program)
 {
     const struct bf_chain *chain = program->runtime.chain;
     int ret_code;
     int r;
 
-    r = _bf_program_build_set_groups(program);
+    r = _bf_codegen_build_set_groups(program);
     if (r)
         return bf_err_r(r, "failed to build set groups");
 
@@ -959,7 +959,7 @@ int bf_program_generate(struct bf_program *program)
     }
 
     bf_list_foreach (&chain->rules, rule_node) {
-        r = _bf_program_generate_rule(program,
+        r = _bf_codegen_generate_rule(program,
                                       bf_list_node_get_data(rule_node));
         if (r)
             return r;
@@ -975,7 +975,7 @@ int bf_program_generate(struct bf_program *program)
     EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
     EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
     EMIT(program,
-         BPF_MOV32_IMM(BPF_REG_3, bf_program_chain_counter_idx(program)));
+         BPF_MOV32_IMM(BPF_REG_3, bf_codegen_chain_counter_idx(program)));
     EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
 
     r = program->runtime.ops->get_verdict(chain->policy, &ret_code);
@@ -984,18 +984,18 @@ int bf_program_generate(struct bf_program *program)
     EMIT(program, BPF_MOV64_IMM(BPF_REG_0, ret_code));
     EMIT(program, BPF_EXIT_INSN());
 
-    r = _bf_program_generate_elfstubs(program);
+    r = _bf_codegen_generate_elfstubs(program);
     if (r)
         return r;
 
-    r = _bf_program_fixup(program, BF_FIXUP_ELFSTUB_CALL);
+    r = _bf_codegen_fixup(program, BF_FIXUP_ELFSTUB_CALL);
     if (r)
         return bf_err_r(r, "failed to generate ELF stub call fixups");
 
     return 0;
 }
 
-static int _bf_program_load_printer_map(struct bf_program *program)
+static int _bf_codegen_load_printer_map(struct bf_codegen *program)
 {
     _cleanup_free_ void *pstr = NULL;
     size_t pstr_len;
@@ -1017,14 +1017,14 @@ static int _bf_program_load_printer_map(struct bf_program *program)
     if (r)
         return bf_err_r(r, "failed to set print map elem");
 
-    r = _bf_program_fixup(program, BF_FIXUP_TYPE_PRINTER_MAP_FD);
+    r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_PRINTER_MAP_FD);
     if (r)
         return bf_err_r(r, "failed to fixup printer map FD");
 
     return 0;
 }
 
-static int _bf_program_load_counters_map(struct bf_program *program)
+static int _bf_codegen_load_counters_map(struct bf_codegen *program)
 {
     int r;
 
@@ -1037,14 +1037,14 @@ static int _bf_program_load_counters_map(struct bf_program *program)
     if (r)
         return bf_err_r(r, "failed to create the counters bf_map object");
 
-    r = _bf_program_fixup(program, BF_FIXUP_TYPE_COUNTERS_MAP_FD);
+    r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_COUNTERS_MAP_FD);
     if (r)
         return bf_err_r(r, "failed to fixup counters map FD");
 
     return 0;
 }
 
-static int _bf_program_load_log_map(struct bf_program *program)
+static int _bf_codegen_load_log_map(struct bf_codegen *program)
 {
     int r;
 
@@ -1059,14 +1059,14 @@ static int _bf_program_load_log_map(struct bf_program *program)
     if (r)
         return bf_err_r(r, "failed to create the log bf_map object");
 
-    r = _bf_program_fixup(program, BF_FIXUP_TYPE_LOG_MAP_FD);
+    r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_LOG_MAP_FD);
     if (r)
         return bf_err_r(r, "failed to fixup log map FD");
 
     return 0;
 }
 
-static int _bf_program_load_state_map(struct bf_program *program)
+static int _bf_codegen_load_state_map(struct bf_codegen *program)
 {
     size_t n_rules;
     int r;
@@ -1086,7 +1086,7 @@ static int _bf_program_load_state_map(struct bf_program *program)
     if (r)
         return bf_err_r(r, "failed to create the state bf_map object");
 
-    r = _bf_program_fixup(program, BF_FIXUP_TYPE_STATE_MAP_FD);
+    r = _bf_codegen_fixup(program, BF_FIXUP_TYPE_STATE_MAP_FD);
     if (r)
         return bf_err_r(r, "failed to fixup state map FD");
 
@@ -1107,7 +1107,7 @@ static bool _bf_dedup_equal(const void *lhs, const void *rhs, void *ctx)
  * @brief Load set maps, one BPF map per `bf_set_group`.
  *
  * Hash-keyed sets that share the same key format have already been
- * grouped by `_bf_program_build_set_groups()`; LPM trie sets each occupy
+ * grouped by `_bf_codegen_build_set_groups()`; LPM trie sets each occupy
  * their own single-set group. Each group collapses to one BPF map whose
  * value is a bitmask: bit `i` of byte `i / CHAR_BIT` identifies the `i`-th
  * set in the group.
@@ -1129,15 +1129,15 @@ static bool _bf_dedup_equal(const void *lhs, const void *rhs, void *ctx)
  * - `n_map_elems`: number of elements that we should have room for in the map,
  *   sum of `max(set.min_size, set.n_elems)` for each set in the group.
  *
- * Empty sets are not part of any group (see `_bf_program_build_set_groups()`),
+ * Empty sets are not part of any group (see `_bf_codegen_build_set_groups()`),
  * so they get no map whatever their `min_size`: their reservation only takes
  * effect once they become non-empty and the program is regenerated.
  *
  * Group ownership of the created maps is transferred to `handle->sets`;
  * the `bf_set_group::map` pointer is a non-owning back-reference used by
- * `_bf_program_fixup()` when resolving `BF_FIXUP_TYPE_SET_MAP_FD` fixups.
+ * `_bf_codegen_fixup()` when resolving `BF_FIXUP_TYPE_SET_MAP_FD` fixups.
  */
-static int _bf_program_load_sets_maps(struct bf_program *new_prog)
+static int _bf_codegen_load_sets_maps(struct bf_codegen *new_prog)
 {
     char name[BPF_OBJ_NAME_LEN];
     size_t map_idx = 0;
@@ -1246,10 +1246,10 @@ static int _bf_program_load_sets_maps(struct bf_program *new_prog)
         group->map = map_ref;
     }
 
-    return _bf_program_fixup(new_prog, BF_FIXUP_TYPE_SET_MAP_FD);
+    return _bf_codegen_fixup(new_prog, BF_FIXUP_TYPE_SET_MAP_FD);
 }
 
-int bf_program_load(struct bf_program *prog)
+int bf_codegen_load(struct bf_codegen *prog)
 {
     _cleanup_free_ char *log_buf = NULL;
     bool log_enabled = bf_ctx_is_verbose(BF_VERBOSE_DEBUG);
@@ -1257,28 +1257,28 @@ int bf_program_load(struct bf_program *prog)
 
     assert(prog);
 
-    r = _bf_program_load_sets_maps(prog);
+    r = _bf_codegen_load_sets_maps(prog);
     if (r)
         return bf_err_r(r, "failed to load the sets map");
 
-    r = _bf_program_load_counters_map(prog);
+    r = _bf_codegen_load_counters_map(prog);
     if (r)
         return bf_err_r(r, "failed to load the counter map");
 
-    r = _bf_program_load_printer_map(prog);
+    r = _bf_codegen_load_printer_map(prog);
     if (r)
         return bf_err_r(r, "failed to load the printer map");
 
-    r = _bf_program_load_log_map(prog);
+    r = _bf_codegen_load_log_map(prog);
     if (r)
         return bf_err_r(r, "failed to load the log map");
 
-    r = _bf_program_load_state_map(prog);
+    r = _bf_codegen_load_state_map(prog);
     if (r)
         return bf_err_r(r, "failed to load the state map");
 
     if (bf_ctx_is_verbose(BF_VERBOSE_BYTECODE))
-        bf_program_dump_bytecode(prog);
+        bf_codegen_dump_bytecode(prog);
 
 retry_load:
     if (log_enabled) {
@@ -1302,14 +1302,14 @@ retry_load:
     }
 
     if (r) {
-        return bf_err_r(r, "failed to load bf_program (%lu insns):\n%s\nerrno:",
+        return bf_err_r(r, "failed to load bf_codegen (%lu insns):\n%s\nerrno:",
                         prog->img.size, log_buf ? log_buf : "<NO LOG BUFFER>");
     }
 
     return r;
 }
 
-int bf_program_get_counter(const struct bf_program *program,
+int bf_codegen_get_counter(const struct bf_codegen *program,
                            uint32_t counter_idx, struct bf_counter *counter)
 {
     assert(program);
@@ -1318,12 +1318,12 @@ int bf_program_get_counter(const struct bf_program *program,
     return bf_handle_get_counter(program->handle, counter_idx, counter);
 }
 
-size_t bf_program_chain_counter_idx(const struct bf_program *program)
+size_t bf_codegen_chain_counter_idx(const struct bf_codegen *program)
 {
     return bf_list_size(&program->runtime.chain->rules);
 }
 
-size_t bf_program_error_counter_idx(const struct bf_program *program)
+size_t bf_codegen_error_counter_idx(const struct bf_codegen *program)
 {
     return bf_list_size(&program->runtime.chain->rules) + 1;
 }

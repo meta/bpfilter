@@ -23,10 +23,11 @@
 #include "filter.h"
 
 /**
- * @file program.h
+ * @file codegen.h
  *
- * @ref bf_program is used to represent a BPF program. It contains the BPF
- * bytecode, as well as the required maps and metadata.
+ * `bf_codegen` is a temporary bytecode generation and loading context. It
+ * owns bytecode, fixups, and generation buffers. It borrows its read-only
+ * chain and mutable handle, which must outlive the context.
  *
  * **Workflow**
  *
@@ -101,35 +102,35 @@
 
 #define EMIT(program, x)                                                       \
     ({                                                                         \
-        int __r = bf_program_emit((program), (x));                             \
+        int __r = bf_codegen_emit((program), (x));                             \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
 
 #define EMIT_KFUNC_CALL(program, function)                                     \
     ({                                                                         \
-        int __r = bf_program_emit_kfunc_call((program), (function));           \
+        int __r = bf_codegen_emit_kfunc_call((program), (function));           \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
 
 #define EMIT_FIXUP(program, type, insn)                                        \
     ({                                                                         \
-        int __r = bf_program_emit_fixup((program), (type), (insn), NULL);      \
+        int __r = bf_codegen_emit_fixup((program), (type), (insn), NULL);      \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
 
 #define EMIT_FIXUP_ELFSTUB(program, elfstub_id)                                \
     ({                                                                         \
-        int __r = bf_program_emit_fixup_elfstub((program), (elfstub_id));      \
+        int __r = bf_codegen_emit_fixup_elfstub((program), (elfstub_id));      \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
 
 #define EMIT_FIXUP_JMP_NEXT_RULE(program, insn)                                \
     ({                                                                         \
-        int __r = bf_program_emit_fixup(                                       \
+        int __r = bf_codegen_emit_fixup(                                       \
             (program), BF_FIXUP_TYPE_JMP_NEXT_RULE, (insn), NULL);             \
         if (__r < 0)                                                           \
             return __r;                                                        \
@@ -138,11 +139,11 @@
 #define EMIT_LOAD_COUNTERS_FD_FIXUP(program, reg)                              \
     ({                                                                         \
         const struct bpf_insn ld_insn[2] = {BPF_LD_MAP_FD(reg, 0)};            \
-        int __r = bf_program_emit_fixup(                                       \
+        int __r = bf_codegen_emit_fixup(                                       \
             (program), BF_FIXUP_TYPE_COUNTERS_MAP_FD, ld_insn[0], NULL);       \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit((program), ld_insn[1]);                          \
+        __r = bf_codegen_emit((program), ld_insn[1]);                          \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
@@ -150,11 +151,11 @@
 #define EMIT_LOAD_LOG_FD_FIXUP(program, reg)                                   \
     ({                                                                         \
         const struct bpf_insn ld_insn[2] = {BPF_LD_MAP_FD(reg, 0)};            \
-        int __r = bf_program_emit_fixup((program), BF_FIXUP_TYPE_LOG_MAP_FD,   \
+        int __r = bf_codegen_emit_fixup((program), BF_FIXUP_TYPE_LOG_MAP_FD,   \
                                         ld_insn[0], NULL);                     \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit((program), ld_insn[1]);                          \
+        __r = bf_codegen_emit((program), ld_insn[1]);                          \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
@@ -162,11 +163,11 @@
 #define EMIT_LOAD_STATE_FD_FIXUP(program, reg)                                 \
     ({                                                                         \
         const struct bpf_insn ld_insn[2] = {BPF_LD_MAP_FD(reg, 0)};            \
-        int __r = bf_program_emit_fixup((program), BF_FIXUP_TYPE_STATE_MAP_FD, \
+        int __r = bf_codegen_emit_fixup((program), BF_FIXUP_TYPE_STATE_MAP_FD, \
                                         ld_insn[0], NULL);                     \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit((program), ld_insn[1]);                          \
+        __r = bf_codegen_emit((program), ld_insn[1]);                          \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
@@ -181,7 +182,7 @@
  * @param program Program to generate the bytecode for. Can't be NULL.
  * @param reg Register to store the set file descriptor in.
  * @param set Non-owning pointer to the referenced `bf_set`. The set must
- *        live at least until `bf_program_load()` returns.
+ *        live at least until `bf_codegen_load()` returns.
  */
 #define EMIT_LOAD_SET_FD_FIXUP(program, reg, set)                              \
     ({                                                                         \
@@ -189,11 +190,11 @@
         memset(&__attr, 0, sizeof(__attr));                                    \
         __attr.set_ptr = (set);                                                \
         const struct bpf_insn ld_insn[2] = {BPF_LD_MAP_FD(reg, 0)};            \
-        int __r = bf_program_emit_fixup((program), BF_FIXUP_TYPE_SET_MAP_FD,   \
+        int __r = bf_codegen_emit_fixup((program), BF_FIXUP_TYPE_SET_MAP_FD,   \
                                         ld_insn[0], &__attr);                  \
         if (__r < 0)                                                           \
             return __r;                                                        \
-        __r = bf_program_emit((program), ld_insn[1]);                          \
+        __r = bf_codegen_emit((program), ld_insn[1]);                          \
         if (__r < 0)                                                           \
             return __r;                                                        \
     })
@@ -205,16 +206,15 @@ struct bf_handle;
 struct bf_set;
 struct bf_set_group;
 
-struct bf_program
+struct bf_codegen
 {
     enum bf_flavor flavor;
 
     /// Log messages printer
     struct bf_printer *printer;
 
-    /** Handle containing BPF object references (prog_fd, maps, link).
-     * Non-owning pointer, passed in from `bf_cgen` via `bf_program_new()`.
-     * Populated during load/attach. */
+    /** Borrowed handle populated during loading. The caller owns the handle
+     * and must keep it alive until this context is freed. */
     struct bf_handle *handle;
 
     /* Bytecode */
@@ -236,31 +236,32 @@ struct bf_program
         /** Hook-specific ops to use to generate the program. */
         const struct bf_flavor_ops *ops;
 
-        /** Chain the program is generated from. This is a non-owning pointer:
-         * the @ref bf_program doesn't have to manage its lifetime. */
+        /** Borrowed, read-only chain. The caller must keep the chain and its
+         * contained objects alive until this context is freed. */
         const struct bf_chain *chain;
     } runtime;
 };
 
-#define _free_bf_program_ __attribute__((__cleanup__(bf_program_free)))
+#define _free_bf_codegen_ __attribute__((__cleanup__(bf_codegen_free)))
 
 /**
- * @brief Allocate and initialize a new `bf_program` object.
+ * @brief Allocate and initialize a new `bf_codegen` object.
  *
- * @param program `bf_program` object to allocate and initialize. Can't be NULL.
- * @param chain Chain the program is generated from. Can't be NULL.
- * @param handle Handle to store BPF object references in. The program borrows
- *        this pointer (non-owning). Can't be NULL.
+ * @param program `bf_codegen` object to allocate and initialize. Can't be NULL.
+ * @param chain Borrowed, read-only chain. Must outlive the context. Can't be
+ *        NULL.
+ * @param handle Borrowed handle populated during loading. Must outlive the
+ *        context. Can't be NULL.
  * @return 0 on success, or a negative error value on failure.
  */
-int bf_program_new(struct bf_program **program, const struct bf_chain *chain,
+int bf_codegen_new(struct bf_codegen **program, const struct bf_chain *chain,
                    struct bf_handle *handle);
 
-void bf_program_free(struct bf_program **program);
+void bf_codegen_free(struct bf_codegen **program);
 
-void bf_program_dump(const struct bf_program *program, prefix_t *prefix);
+void bf_codegen_dump(const struct bf_codegen *program, prefix_t *prefix);
 
-static inline int bf_program_emit(struct bf_program *program,
+static inline int bf_codegen_emit(struct bf_codegen *program,
                                   struct bpf_insn insn)
 {
     assert(program);
@@ -268,13 +269,13 @@ static inline int bf_program_emit(struct bf_program *program,
     return bf_vector_add(&program->img, &insn);
 }
 
-int bf_program_emit_kfunc_call(struct bf_program *program, const char *name);
-int bf_program_emit_fixup(struct bf_program *program, enum bf_fixup_type type,
+int bf_codegen_emit_kfunc_call(struct bf_codegen *program, const char *name);
+int bf_codegen_emit_fixup(struct bf_codegen *program, enum bf_fixup_type type,
                           struct bpf_insn insn,
                           const union bf_fixup_attr *attr);
-int bf_program_emit_fixup_elfstub(struct bf_program *program,
+int bf_codegen_emit_fixup_elfstub(struct bf_codegen *program,
                                   enum bf_elfstub_id id);
-int bf_program_generate(struct bf_program *program);
+int bf_codegen_generate(struct bf_codegen *program);
 
 /**
  * @brief Get the bit position of a set within its group.
@@ -293,7 +294,7 @@ int bf_program_generate(struct bf_program *program);
  * @return 0 on success, `-ENOENT` if `set` is not part of any group (for
  *         example, because it is empty).
  */
-int bf_program_set_bit_index(const struct bf_program *program,
+int bf_codegen_set_bit_index(const struct bf_codegen *program,
                              const struct bf_set *set, size_t *bit_index);
 
 /**
@@ -311,12 +312,12 @@ int bf_program_set_bit_index(const struct bf_program *program,
  *        instructions.
  * @return 0 on success, or negative errno value on failure.
  */
-int bf_program_load(struct bf_program *prog);
+int bf_codegen_load(struct bf_codegen *prog);
 
-int bf_program_get_counter(const struct bf_program *program,
+int bf_codegen_get_counter(const struct bf_codegen *program,
                            uint32_t counter_idx, struct bf_counter *counter);
-int bf_program_set_counters(struct bf_program *program,
+int bf_codegen_set_counters(struct bf_codegen *program,
                             const struct bf_counter *counters);
 
-size_t bf_program_chain_counter_idx(const struct bf_program *program);
-size_t bf_program_error_counter_idx(const struct bf_program *program);
+size_t bf_codegen_chain_counter_idx(const struct bf_codegen *program);
+size_t bf_codegen_error_counter_idx(const struct bf_codegen *program);

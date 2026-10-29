@@ -22,7 +22,7 @@ struct bf_counter;
  *
  * @ref bf_handle is used to manage BPF object references (program fd, link,
  * maps) separately from the bytecode generation context. This allows the
- * bytecode generator (bf_program) to be discarded after generation while
+ * bytecode generator (bf_codegen) to be discarded after generation while
  * keeping the BPF objects alive.
  */
 

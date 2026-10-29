@@ -4,7 +4,7 @@ Programs generation
 Bytecode generation
 -------------------
 
-.. doxygenfile:: program.h
+.. doxygenfile:: codegen.h
 
 ELF stubs
 ---------

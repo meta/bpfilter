@@ -13,7 +13,7 @@
 
 #include <bpfilter/logger.h>
 
-#include "cgen/program.h"
+#include "cgen/codegen.h"
 
 void bf_jmpctx_cleanup(struct bf_jmpctx *ctx)
 {

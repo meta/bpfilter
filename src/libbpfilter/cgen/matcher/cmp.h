@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 struct bf_matcher;
-struct bf_program;
+struct bf_codegen;
 
 /**
  * @brief Get the BPF jump opcode for a matcher, accounting for negation.
@@ -42,7 +42,7 @@ uint8_t bf_cmp_get_jmp_ins(const struct bf_matcher *matcher);
  * @param reg BPF register holding the value to compare.
  * @return 0 on success, negative errno on error.
  */
-int bf_cmp_value(struct bf_program *program, const struct bf_matcher *matcher,
+int bf_cmp_value(struct bf_codegen *program, const struct bf_matcher *matcher,
                  const void *ref, unsigned int size, int reg);
 
 /**
@@ -63,7 +63,7 @@ int bf_cmp_value(struct bf_program *program, const struct bf_matcher *matcher,
  * @param reg BPF register holding the value to compare.
  * @return 0 on success, negative errno on error.
  */
-int bf_cmp_masked_value(struct bf_program *program,
+int bf_cmp_masked_value(struct bf_codegen *program,
                         const struct bf_matcher *matcher, const void *ref,
                         unsigned int prefixlen, unsigned int size, int reg);
 
@@ -83,7 +83,7 @@ int bf_cmp_masked_value(struct bf_program *program,
  * @param reg BPF register holding the value to compare.
  * @return 0 on success, negative errno on error.
  */
-int bf_cmp_range(struct bf_program *program, const struct bf_matcher *matcher,
+int bf_cmp_range(struct bf_codegen *program, const struct bf_matcher *matcher,
                  uint32_t min, uint32_t max, int reg);
 
 /**
@@ -100,5 +100,5 @@ int bf_cmp_range(struct bf_program *program, const struct bf_matcher *matcher,
  * @param reg BPF register holding the value to check.
  * @return 0 on success, negative errno on error.
  */
-int bf_cmp_bitfield(struct bf_program *program,
+int bf_cmp_bitfield(struct bf_codegen *program,
                     const struct bf_matcher *matcher, uint32_t flags, int reg);

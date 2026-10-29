@@ -6,7 +6,7 @@
 #pragma once
 
 struct bf_matcher;
-struct bf_program;
+struct bf_codegen;
 struct bf_rule;
 
 /**
@@ -24,7 +24,7 @@ struct bf_rule;
  * @param matcher Matcher to generate code for. Can't be NULL.
  * @return 0 on success, negative errno on error.
  */
-int bf_packet_gen_inline_matcher(struct bf_program *program,
+int bf_packet_gen_inline_matcher(struct bf_codegen *program,
                                  const struct bf_matcher *matcher);
 
 /**
@@ -37,5 +37,5 @@ int bf_packet_gen_inline_matcher(struct bf_program *program,
  * @param rule Rule whose log action to generate. Can't be NULL.
  * @return 0 on success, negative errno on error.
  */
-int bf_packet_gen_inline_log(struct bf_program *program,
+int bf_packet_gen_inline_log(struct bf_codegen *program,
                              const struct bf_rule *rule);

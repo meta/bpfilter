@@ -31,7 +31,7 @@ struct bf_cgen
     struct bf_chain *chain;
 
     /** Handle containing BPF object references (prog_fd, maps, link).
-     * Created by default in `bf_cgen_new`. Passed to `bf_program` during
+     * Created by default in `bf_cgen_new`. Passed to `bf_codegen` during
      * generation, which populates it. The program is discarded after
      * generation, only the handle is kept. */
     struct bf_handle *handle;
@@ -99,9 +99,9 @@ int bf_cgen_set(struct bf_cgen *cgen, struct bf_hookopts **hookopts,
                 struct bf_lock *lock);
 
 /**
- * Create and load a `bf_program` into the kernel.
+ * Create and load a `bf_codegen` into the kernel.
  *
- * Create a new `bf_program` for `cgen`, and generate it based on the chain
+ * Create a new `bf_codegen` for `cgen`, and generate it based on the chain
  * stored in the codegen. Once the generation is complete, the program is
  * loaded into the kernel.
  *

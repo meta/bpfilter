@@ -44,7 +44,7 @@ Group and order includes as follows, with a blank line between groups:
 
     #include <bpfilter/chain.h>
 
-    #include "cgen/program.h"
+    #include "cgen/codegen.h"
     #include "ctx.h"
 
 Forward declarations
@@ -55,7 +55,7 @@ Prefer forward declarations over includes when only a pointer to a type is neede
 .. code:: c
 
     struct bf_chain;
-    struct bf_program;
+    struct bf_codegen;
 
 
 Naming conventions
@@ -65,7 +65,7 @@ Functions and variables
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 - Lowercase with underscores: ``bf_chain_new()``, ``bf_ctx_setup()``
-- Prefix with module name: ``bf_chain_*``, ``bf_program_*``, ``bf_ctx_*``
+- Prefix with module name: ``bf_chain_*``, ``bf_codegen_*``, ``bf_ctx_*``
 - Static functions and variables use leading underscore: ``_bf_ctx_free()``
 - CLI utilities use ``bfc_`` prefix: ``bfc_parse_file()``
 - Macros use uppercase with underscores: ``EMIT()``, ``TAKE_PTR()``, ``ARRAY_SIZE()``

@@ -42,7 +42,7 @@
  * will skip the instructions defined in the scope and continue.
  */
 
-struct bf_program;
+struct bf_codegen;
 
 /**
  * Cleanup attribute for a @ref bf_jmpctx variable.
@@ -62,7 +62,7 @@ struct bf_program;
 #define bf_jmpctx_get(program, insn)                                           \
     ({                                                                         \
         size_t __idx = (program)->img.size;                                    \
-        int __r = bf_program_emit((program), (insn));                          \
+        int __r = bf_codegen_emit((program), (insn));                          \
         if (__r < 0)                                                           \
             return __r;                                                        \
         (struct bf_jmpctx) {.program = (program), .insn_idx = __idx};          \
@@ -78,7 +78,7 @@ struct bf_program;
  */
 struct bf_jmpctx
 {
-    struct bf_program *program;
+    struct bf_codegen *program;
     size_t insn_idx;
 };
 

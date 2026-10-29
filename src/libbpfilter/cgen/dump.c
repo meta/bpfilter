@@ -18,7 +18,7 @@
 #include <bpfilter/helper.h>
 #include <bpfilter/logger.h>
 
-#include "cgen/program.h"
+#include "cgen/codegen.h"
 #include "disasm.h"
 
 #define SYM_MAX_NAME 256
@@ -87,7 +87,7 @@ static const char *_bf_print_imm(void *private_data,
     return bfdd->scratch_buff;
 }
 
-void bf_program_dump_bytecode(const struct bf_program *program)
+void bf_codegen_dump_bytecode(const struct bf_codegen *program)
 {
     prefix_t prefix = {};
     struct bf_dump_data bfdd = {

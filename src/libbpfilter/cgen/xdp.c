@@ -16,8 +16,8 @@
 #include <bpfilter/logger.h>
 #include <bpfilter/verdict.h>
 
+#include "cgen/codegen.h"
 #include "cgen/packet.h"
-#include "cgen/program.h"
 #include "cgen/stub.h"
 #include "filter.h"
 
@@ -30,7 +30,7 @@
  * @param program Program to generate the prologue for. Must not be NULL.
  * @return 0 on success, or negative errno value on error.
  */
-static int _bf_xdp_gen_inline_prologue(struct bf_program *program)
+static int _bf_xdp_gen_inline_prologue(struct bf_codegen *program)
 {
     int r;
 
@@ -70,7 +70,7 @@ static int _bf_xdp_gen_inline_prologue(struct bf_program *program)
     return 0;
 }
 
-static int _bf_xdp_gen_inline_epilogue(struct bf_program *program)
+static int _bf_xdp_gen_inline_epilogue(struct bf_codegen *program)
 {
     (void)program;
 
@@ -89,7 +89,7 @@ static int _bf_xdp_gen_inline_epilogue(struct bf_program *program)
  * @param dir Direction (must be BF_REDIRECT_EGRESS for XDP).
  * @return 0 on success, or a negative errno value on failure.
  */
-static int _bf_xdp_gen_inline_redirect(struct bf_program *program,
+static int _bf_xdp_gen_inline_redirect(struct bf_codegen *program,
                                        uint32_t ifindex,
                                        enum bf_redirect_dir dir)
 {
