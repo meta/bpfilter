@@ -464,6 +464,43 @@ static void apply_set_delta_updates_derived_state(void **state)
         bf_chain_apply_set_delta(chain, "set", invalid_delta, NULL), -EINVAL);
 }
 
+static void validate_rules_uses_current_content(void **state)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_set_ struct bf_set *set = NULL;
+    _free_bf_rule_ struct bf_rule *rule = NULL;
+    enum bf_matcher_type key[] = {BF_MATCHER_TCP_SPORT};
+    struct bf_set *set_ref;
+    struct bf_rule *rule_ref;
+    uint16_t port = htons(80);
+
+    (void)state;
+
+    assert_ok(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT, NULL,
+                           NULL));
+    assert_ok(bf_set_new(&set, "set", key, ARRAY_SIZE(key)));
+    set_ref = set;
+    assert_ok(bf_chain_add_set(chain, set));
+    TAKE_PTR(set);
+
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bft_rule_add_named_set_matcher(rule, set_ref, false));
+    rule_ref = rule;
+    assert_ok(bf_chain_add_rule(chain, rule));
+    TAKE_PTR(rule);
+    assert_true(rule_ref->disabled);
+
+    // Change the chain after the rule was added: the stored state is stale.
+    assert_ok(bf_set_add_elem(set_ref, &port));
+    rule_ref->log = BF_LOG_OPT_DEFAULT;
+    rule_ref->index = 1;
+
+    assert_ok(bf_chain_validate_rules(chain));
+    assert_false(rule_ref->disabled);
+    assert_int_equal(rule_ref->index, 0);
+    assert_int_equal(chain->flags, BF_FLAG(BF_CHAIN_LOG));
+}
+
 static void empty_set_only_disables_in_rules(void **state)
 {
     _free_bf_chain_ struct bf_chain *chain = NULL;
@@ -874,6 +911,7 @@ int main(void)
         cmocka_unit_test(get_set_from_matcher),
         cmocka_unit_test(mixed_enabled_disabled_log_flag),
         cmocka_unit_test(apply_set_delta_updates_derived_state),
+        cmocka_unit_test(validate_rules_uses_current_content),
         cmocka_unit_test(empty_set_only_disables_in_rules),
         cmocka_unit_test(incompatible_matchers_disable_rule),
         cmocka_unit_test(sock_addr_log_flag),

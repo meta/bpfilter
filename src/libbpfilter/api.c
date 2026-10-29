@@ -17,12 +17,14 @@
 #include "bpfilter/hook.h"
 #include "bpfilter/logger.h"
 #include "bpfilter/set.h"
-#include "cgen/cgen.h"
+#include "cgen/codegen.h"
 #include "cgen/handle.h"
 #include "cgen/prog/link.h"
 #include "cgen/prog/map.h"
 #include "core/lock.h"
 #include "state.h"
+
+#define _BF_PROG_NAME "bf_prog"
 
 static int copy_hookopts(struct bf_hookopts **dest,
                          const struct bf_hookopts *src)
@@ -64,29 +66,33 @@ static void _bf_chain_unload(struct bf_handle *handle, struct bf_lock *lock)
  */
 static int _bf_ruleset_flush(struct bf_lock *lock)
 {
-    _free_bf_list_ bf_list *cgens = NULL;
+    _free_bf_list_ bf_list *chains = NULL;
+    _free_bf_list_ bf_list *handles = NULL;
+    struct bf_list_node *handle_node;
     int r;
 
     assert(lock);
 
-    r = bf_ctx_get_cgens(lock, &cgens);
+    r = bf_state_discover(lock, &chains, &handles);
     if (r)
         return bf_err_r(r, "failed to discover chains during flush");
 
-    bf_list_foreach (cgens, cgen_node) {
-        struct bf_cgen *cgen = bf_list_node_get_data(cgen_node);
+    handle_node = bf_list_get_head(handles);
+    bf_list_foreach (chains, chain_node) {
+        struct bf_chain *chain = bf_list_node_get_data(chain_node);
+        struct bf_handle *handle = bf_list_node_get_data(handle_node);
 
-        r = bf_lock_acquire_chain(lock, cgen->chain->name, BF_LOCK_WRITE,
-                                  false);
+        handle_node = bf_list_node_next(handle_node);
+        r = bf_lock_acquire_chain(lock, chain->name, BF_LOCK_WRITE, false);
         if (r) {
             bf_warn_r(
                 r,
                 "failed to acquire WRITE lock on chain '%s' during flush, skipping",
-                cgen->chain->name);
+                chain->name);
             continue;
         }
 
-        bf_cgen_unload(cgen, lock);
+        _bf_chain_unload(handle, lock);
         bf_lock_release_chain(lock);
     }
 
@@ -96,36 +102,39 @@ static int _bf_ruleset_flush(struct bf_lock *lock)
 int bf_ruleset_get(bf_list *chains, bf_list *hookopts)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_list_ bf_list *cgens = NULL;
+    _free_bf_list_ bf_list *restored_chains = NULL;
+    _free_bf_list_ bf_list *handles = NULL;
     _clean_bf_list_ bf_list _chains = bf_list_default_from(*chains);
     _clean_bf_list_ bf_list _hookopts = bf_list_default_from(*hookopts);
+    struct bf_list_node *handle_node;
     int r;
 
     r = bf_lock_init(&lock, BF_LOCK_READ);
     if (r)
         return bf_err_r(r, "failed to acquire READ lock for ruleset get");
 
-    r = bf_ctx_get_cgens(&lock, &cgens);
-    if (r < 0)
-        return bf_err_r(r, "failed to get cgen list");
+    r = bf_state_discover(&lock, &restored_chains, &handles);
+    if (r)
+        return bf_err_r(r, "failed to discover chains");
 
-    bf_list_foreach (cgens, cgen_node) {
-        struct bf_cgen *cgen = bf_list_node_get_data(cgen_node);
+    handle_node = bf_list_get_head(handles);
+    bf_list_foreach (restored_chains, chain_node) {
+        _free_bf_chain_ struct bf_chain *chain =
+            bf_list_node_take_data(chain_node);
+        struct bf_handle *handle = bf_list_node_get_data(handle_node);
         _free_bf_hookopts_ struct bf_hookopts *hookopts_copy = NULL;
 
-        r = bf_cgen_load_counters(cgen);
-        if (r) {
-            return bf_err_r(r, "failed to read counters for '%s'",
-                            cgen->chain->name);
-        }
+        handle_node = bf_list_node_next(handle_node);
+        r = bf_handle_load_counters(handle, chain);
+        if (r)
+            return bf_err_r(r, "failed to read counters for '%s'", chain->name);
 
-        // cgen will be destroyed, we can steal the chain
-        r = bf_list_push(&_chains, (void **)&cgen->chain);
+        r = bf_list_push(&_chains, (void **)&chain);
         if (r)
             return r;
 
-        if (cgen->handle->link && cgen->handle->link->hookopts) {
-            r = copy_hookopts(&hookopts_copy, cgen->handle->link->hookopts);
+        if (handle->link && handle->link->hookopts) {
+            r = copy_hookopts(&hookopts_copy, handle->link->hookopts);
             if (r)
                 return bf_err_r(r, "failed to copy hookopts");
         }
@@ -160,16 +169,12 @@ int bf_ruleset_set(bf_list *chains, bf_list *hookopts)
         return r;
 
     while (chain_node && hookopts_node) {
-        _free_bf_cgen_ struct bf_cgen *cgen = NULL;
-        _free_bf_chain_ struct bf_chain *chain_copy = NULL;
+        _free_bf_handle_ struct bf_handle *handle = NULL;
+        _free_bf_codegen_ struct bf_codegen *codegen = NULL;
         _free_bf_hookopts_ struct bf_hookopts *hookopts_copy = NULL;
         struct bf_chain *chain = bf_list_node_get_data(chain_node);
-        struct bf_hookopts *node_hookopts =
+        const struct bf_hookopts *node_hookopts =
             bf_list_node_get_data(hookopts_node);
-
-        r = bf_chain_new_from_copy(&chain_copy, chain);
-        if (r)
-            goto err_load;
 
         if (node_hookopts) {
             r = copy_hookopts(&hookopts_copy, node_hookopts);
@@ -177,29 +182,54 @@ int bf_ruleset_set(bf_list *chains, bf_list *hookopts)
                 goto err_load;
         }
 
-        r = bf_cgen_new(&cgen, &chain_copy);
+        r = bf_handle_new(&handle, _BF_PROG_NAME);
         if (r)
             goto err_load;
 
-        r = bf_lock_acquire_chain(&lock, cgen->chain->name, BF_LOCK_WRITE,
-                                  true);
+        r = bf_lock_acquire_chain(&lock, chain->name, BF_LOCK_WRITE, true);
         if (r) {
             bf_err_r(r, "failed to acquire WRITE lock on chain '%s'",
-                     cgen->chain->name);
+                     chain->name);
             goto err_load;
         }
 
-        r = bf_cgen_set(cgen, hookopts_copy ? &hookopts_copy : NULL, &lock);
+        r = bf_codegen_new(&codegen, chain, handle);
+        if (r)
+            goto err_release;
+
+        r = bf_codegen_generate(codegen);
+        if (r)
+            goto err_release;
+
+        r = bf_codegen_load(codegen);
+        if (r)
+            goto err_release;
+
+        if (hookopts_copy) {
+            r = bf_handle_attach(handle, chain->hook, &hookopts_copy);
+            if (r)
+                goto err_release;
+        }
+
+        r = bf_handle_pin(handle, &lock);
+        if (r)
+            goto err_release;
+
+        r = bf_state_persist(&lock, chain, handle);
         if (r) {
-            bf_err_r(r, "failed to set chain '%s'", cgen->chain->name);
-            bf_lock_release_chain(&lock);
-            goto err_load;
+            bf_handle_unpin(handle, &lock);
+            goto err_release;
         }
 
         bf_lock_release_chain(&lock);
-
         chain_node = bf_list_node_next(chain_node);
         hookopts_node = bf_list_node_next(hookopts_node);
+        continue;
+
+err_release:
+        bf_err_r(r, "failed to set chain '%s'", chain->name);
+        bf_lock_release_chain(&lock);
+        goto err_load;
     }
 
     return 0;
@@ -224,9 +254,10 @@ int bf_ruleset_flush(void)
 int bf_chain_set(struct bf_chain *chain, struct bf_hookopts *hookopts)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *old_cgen = NULL;
-    _free_bf_cgen_ struct bf_cgen *new_cgen = NULL;
-    _free_bf_chain_ struct bf_chain *chain_copy = NULL;
+    _free_bf_chain_ struct bf_chain *old_chain = NULL;
+    _free_bf_handle_ struct bf_handle *old_handle = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
+    _free_bf_codegen_ struct bf_codegen *codegen = NULL;
     _free_bf_hookopts_ struct bf_hookopts *hookopts_copy = NULL;
     int r;
 
@@ -244,13 +275,14 @@ int bf_chain_set(struct bf_chain *chain, struct bf_hookopts *hookopts)
      * entry so stage-and-rename can publish the new one. */
     r = bf_lock_acquire_chain(&lock, chain->name, BF_LOCK_WRITE, false);
     if (r == 0) {
-        r = bf_ctx_get_cgen(&lock, &old_cgen);
+        r = bf_state_restore(&lock, &old_chain, &old_handle);
         if (r && r != -ENOENT) {
             bf_lock_release_chain(&lock);
             return r;
         }
-        if (old_cgen)
-            bf_cgen_unload(old_cgen, &lock);
+        if (old_handle)
+            _bf_chain_unload(old_handle, &lock);
+
         /* Release drops the chain flock and (because we held WRITE)
          * removes the now-empty chain dir. */
         bf_lock_release_chain(&lock);
@@ -258,17 +290,13 @@ int bf_chain_set(struct bf_chain *chain, struct bf_hookopts *hookopts)
         return r;
     }
 
-    r = bf_chain_new_from_copy(&chain_copy, chain);
-    if (r)
-        return r;
-
     if (hookopts) {
         r = copy_hookopts(&hookopts_copy, hookopts);
         if (r)
             return r;
     }
 
-    r = bf_cgen_new(&new_cgen, &chain_copy);
+    r = bf_handle_new(&handle, _BF_PROG_NAME);
     if (r)
         return r;
 
@@ -277,7 +305,35 @@ int bf_chain_set(struct bf_chain *chain, struct bf_hookopts *hookopts)
     if (r)
         return r;
 
-    return bf_cgen_set(new_cgen, hookopts_copy ? &hookopts_copy : NULL, &lock);
+    r = bf_codegen_new(&codegen, chain, handle);
+    if (r)
+        return r;
+
+    r = bf_codegen_generate(codegen);
+    if (r)
+        return bf_err_r(r, "failed to generate bytecode");
+
+    r = bf_codegen_load(codegen);
+    if (r)
+        return bf_err_r(r, "failed to load the chain");
+
+    if (hookopts_copy) {
+        r = bf_handle_attach(handle, chain->hook, &hookopts_copy);
+        if (r)
+            return bf_err_r(r, "failed to load and attach the chain");
+    }
+
+    r = bf_handle_pin(handle, &lock);
+    if (r)
+        return r;
+
+    r = bf_state_persist(&lock, chain, handle);
+    if (r) {
+        bf_handle_unpin(handle, &lock);
+        return bf_err_r(r, "failed to persist chain '%s'", chain->name);
+    }
+
+    return 0;
 }
 
 int bf_chain_get(const char *name, struct bf_chain **chain,
@@ -366,8 +422,8 @@ int bf_chain_logs_fd(const char *name)
 int bf_chain_load(struct bf_chain *chain)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
-    _free_bf_chain_ struct bf_chain *chain_copy = NULL;
+    _free_bf_handle_ struct bf_handle *handle = NULL;
+    _free_bf_codegen_ struct bf_codegen *codegen = NULL;
     int r;
 
     assert(chain);
@@ -381,15 +437,40 @@ int bf_chain_load(struct bf_chain *chain)
     if (r)
         return r;
 
-    r = bf_chain_new_from_copy(&chain_copy, chain);
+    r = bf_handle_new(&handle, _BF_PROG_NAME);
     if (r)
         return r;
 
-    r = bf_cgen_new(&cgen, &chain_copy);
+    r = bf_codegen_new(&codegen, chain, handle);
     if (r)
         return r;
 
-    return bf_cgen_load(cgen, &lock);
+    r = bf_codegen_generate(codegen);
+    if (r)
+        return bf_err_r(r, "failed to generate bytecode");
+
+    r = bf_codegen_load(codegen);
+    if (r)
+        return bf_err_r(r, "failed to load the chain");
+
+    r = bf_handle_pin(handle, &lock);
+    if (r)
+        return r;
+
+    r = bf_state_persist(&lock, chain, handle);
+    if (r) {
+        bf_handle_unpin(handle, &lock);
+        return bf_err_r(r, "failed to persist chain '%s'", chain->name);
+    }
+
+    bf_info("chain '%s' loaded", chain->name);
+
+    if (bf_log_get_level() == BF_LOG_DBG) {
+        bf_chain_dump(chain, EMPTY_PREFIX);
+        bf_handle_dump(handle, EMPTY_PREFIX);
+    }
+
+    return 0;
 }
 
 int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts)
@@ -445,11 +526,88 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts)
     return 0;
 }
 
+/* The caller holds the chain WRITE lock and owns both chains and old_handle. */
+static int _bf_chain_update(struct bf_lock *lock,
+                            const struct bf_chain *old_chain,
+                            struct bf_handle *old_handle,
+                            struct bf_chain *chain, bool preserve_counters)
+{
+    _free_bf_handle_ struct bf_handle *handle = NULL;
+    _free_bf_codegen_ struct bf_codegen *codegen = NULL;
+    int r;
+
+    assert(lock);
+    assert(old_chain);
+    assert(old_handle);
+    assert(chain);
+
+    r = bf_handle_new(&handle, _BF_PROG_NAME);
+    if (r)
+        return r;
+
+    r = bf_codegen_new(&codegen, chain, handle);
+    if (r)
+        return bf_err_r(r, "failed to create a generation context");
+
+    r = bf_codegen_generate(codegen);
+    if (r)
+        return bf_err_r(r, "failed to generate replacement bytecode");
+
+    r = bf_codegen_load(codegen);
+    if (r)
+        return bf_err_r(r, "failed to load new program");
+
+    if (preserve_counters) {
+        if (bf_list_size(&old_chain->rules) != bf_list_size(&chain->rules))
+            return bf_err_r(-EINVAL,
+                            "rule count mismatch for counter transfer");
+
+        r = bf_handle_copy_counters(old_handle, handle,
+                                    bf_list_size(&chain->rules));
+        if (r)
+            return bf_err_r(r, "failed to transfer counters");
+    }
+
+    // Publication starts here. Preserve the existing recovery behavior.
+    bf_handle_unpin(old_handle, lock);
+
+    if (old_handle->link) {
+        r = bf_link_update(old_handle->link, handle->prog_fd);
+        if (r) {
+            bf_err_r(r, "failed to update link with new program");
+            if (bf_handle_pin(old_handle, lock) < 0)
+                bf_err("failed to repin old handle, ignoring");
+            return r;
+        }
+
+        bf_swap(handle->link, old_handle->link);
+    }
+
+    r = bf_handle_pin(handle, lock);
+    if (r)
+        return bf_err_r(r, "failed to pin new handle");
+
+    // Keep the intermediate old-configuration persistence step unchanged.
+    r = bf_state_persist(lock, old_chain, handle);
+    if (r) {
+        bf_handle_unpin(handle, lock);
+        return bf_err_r(r, "failed to persist chain '%s'", old_chain->name);
+    }
+
+    r = bf_state_persist(lock, chain, handle);
+    if (r) {
+        bf_handle_unpin(handle, lock);
+        return bf_err_r(r, "failed to persist chain '%s'", chain->name);
+    }
+
+    return 0;
+}
+
 int bf_chain_update(const struct bf_chain *chain)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
-    _free_bf_chain_ struct bf_chain *chain_copy = NULL;
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_chain_ struct bf_chain *old_chain = NULL;
+    _free_bf_handle_ struct bf_handle *old_handle = NULL;
     int r;
 
     assert(chain);
@@ -459,31 +617,30 @@ int bf_chain_update(const struct bf_chain *chain)
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &old_chain, &old_handle);
     if (r)
         return r;
 
-    if (chain->hook != cgen->chain->hook) {
+    if (chain->hook != old_chain->hook) {
         return bf_err_r(
             -EINVAL,
             "can't update chain '%s': hook %s doesn't match the existing hook %s",
             chain->name, bf_hook_to_str(chain->hook),
-            bf_hook_to_str(cgen->chain->hook));
+            bf_hook_to_str(old_chain->hook));
     }
 
-    r = bf_chain_new_from_copy(&chain_copy, chain);
-    if (r)
-        return r;
-
-    return bf_cgen_update(cgen, &chain_copy, 0, &lock);
+    // Code generation updates the chain's derived state in place.
+    return _bf_chain_update(&lock, old_chain, old_handle,
+                            (struct bf_chain *)chain, false);
 }
 
 int bf_chain_update_set(const char *name, const struct bf_set *to_add,
                         const struct bf_set *to_remove)
 {
     _clean_bf_lock_ struct bf_lock lock = bf_lock_default();
+    _free_bf_chain_ struct bf_chain *old_chain = NULL;
     _free_bf_chain_ struct bf_chain *new_chain = NULL;
-    _free_bf_cgen_ struct bf_cgen *cgen = NULL;
+    _free_bf_handle_ struct bf_handle *old_handle = NULL;
     int r;
 
     assert(name);
@@ -497,11 +654,12 @@ int bf_chain_update_set(const char *name, const struct bf_set *to_add,
     if (r)
         return r;
 
-    r = bf_ctx_get_cgen(&lock, &cgen);
+    r = bf_state_restore(&lock, &old_chain, &old_handle);
     if (r)
         return r;
 
-    r = bf_chain_new_from_copy(&new_chain, cgen->chain);
+    // Publication still needs the old configuration for its first persist.
+    r = bf_chain_new_from_copy(&new_chain, old_chain);
     if (r)
         return r;
 
@@ -509,12 +667,7 @@ int bf_chain_update_set(const char *name, const struct bf_set *to_add,
     if (r)
         return r;
 
-    r = bf_cgen_update(cgen, &new_chain,
-                       BF_FLAG(BF_CGEN_UPDATE_PRESERVE_COUNTERS), &lock);
-    if (r)
-        return bf_err_r(r, "failed to update chain with new set data");
-
-    return 0;
+    return _bf_chain_update(&lock, old_chain, old_handle, new_chain, true);
 }
 
 int bf_chain_flush(const char *name)
