@@ -13,20 +13,14 @@
 
 #include <bpfilter/bpf.h>
 #include <bpfilter/btf.h>
-#include <bpfilter/chain.h>
-#include <bpfilter/core/list.h>
 #include <bpfilter/ctx.h>
 #include <bpfilter/dump.h>
 #include <bpfilter/elfstub.h>
 #include <bpfilter/helper.h>
-#include <bpfilter/hook.h>
 #include <bpfilter/io.h>
 #include <bpfilter/logger.h>
-#include <bpfilter/pack.h>
 
-#include "cgen/cgen.h"
 #include "core/lock.h"
-#include "state.h"
 
 #define _free_bf_ctx_ __attribute__((cleanup(_bf_ctx_free)))
 
@@ -300,67 +294,6 @@ void bf_ctx_dump(prefix_t *prefix)
         return;
 
     _bf_ctx_dump(_bf_global_ctx, prefix);
-}
-
-int bf_ctx_get_cgen(struct bf_lock *lock, struct bf_cgen **cgen)
-{
-    _free_bf_cgen_ struct bf_cgen *_cgen = NULL;
-    int r;
-
-    assert(lock);
-    assert(cgen);
-
-    if (!_bf_global_ctx)
-        return bf_err_r(-EINVAL, "context is not initialized");
-
-    r = bf_cgen_new_from_dir_fd(&_cgen, lock);
-    if (r)
-        return bf_err_r(r, "failed to load chain '%s' from bpffs",
-                        lock->chain_name ? lock->chain_name : "(unknown)");
-
-    *cgen = TAKE_PTR(_cgen);
-
-    return 0;
-}
-
-int bf_ctx_get_cgens(struct bf_lock *lock, bf_list **cgens)
-{
-    _free_bf_list_ bf_list *chains = NULL;
-    _free_bf_list_ bf_list *handles = NULL;
-    _free_bf_list_ bf_list *_cgens = NULL;
-    struct bf_list_node *handle_node;
-    int r;
-
-    assert(lock);
-    assert(cgens);
-
-    r = bf_list_new(&_cgens, &bf_list_ops_default(bf_cgen_free, bf_cgen_pack));
-    if (r)
-        return r;
-
-    r = bf_state_discover(lock, &chains, &handles);
-    if (r)
-        return r;
-
-    handle_node = bf_list_get_head(handles);
-    bf_list_foreach (chains, chain_node) {
-        _free_bf_cgen_ struct bf_cgen *cgen = calloc(1, sizeof(*cgen));
-
-        if (cgen) {
-            cgen->chain = bf_list_node_take_data(chain_node);
-            cgen->handle = bf_list_node_take_data(handle_node);
-            r = bf_list_push(_cgens, (void **)&cgen);
-            if (r)
-                bf_warn_r(r, "failed to push restored chain, skipping");
-        } else {
-            bf_warn_r(-ENOMEM, "failed to allocate restored chain, skipping");
-        }
-
-        handle_node = bf_list_node_next(handle_node);
-    }
-
-    *cgens = TAKE_PTR(_cgens);
-    return 0;
 }
 
 int bf_ctx_token(void)

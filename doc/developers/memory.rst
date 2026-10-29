@@ -35,7 +35,6 @@ If a callee's Doxygen contradicts the generic rules below, the Doxygen wins. The
 
 - ``bf_hashset_add(set, &data)`` transfers ownership of ``*data`` to the hashset on success (and sets ``*data`` to ``NULL``), but **not** on ``-EEXIST``: the caller retains ownership when the element was already present. Both naive assumptions ("inputs are borrowed" and "inputs are always taken") are wrong; only the per-return-code contract is correct, and getting it wrong produces either a leak (on success) or a double-free (on ``-EEXIST``).
 - ``bf_set_add(dest, &to_add)`` and ``bf_set_remove(dest, &to_remove)`` consume their second argument on success: the function frees ``*to_add`` / ``*to_remove`` and sets the caller's pointer to ``NULL``. The generic rule "callers retain ownership of inputs" is reversed.
-- ``bf_cgen_new(&cgen, hook, chain)`` takes ownership of ``chain`` on success: after the call returns, the new codegen owns the chain and the caller must not free it. Same reversal as above, but for a constructor.
 - ``bf_vector_take(vec)`` is the inverse of the usual container contract: it transfers ownership of the vector's **backing buffer** out to the caller, leaving ``vec`` empty but reusable. The caller must ``free()`` the returned pointer.
 
 Each of these is a place where reading the Doxygen carefully is the only way to write correct calling code — applying the generic rules below would produce either leaks or double-frees.
