@@ -3,12 +3,9 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-if (NOT DEFINED DEFAULT_PROJECT_VERSION)
-    set(DEFAULT_PROJECT_VERSION 0.0.0)
-endif ()
-
+# The actual version is defined below, from Git or the archive.
 project(bpfilter
-    VERSION ${DEFAULT_PROJECT_VERSION}
+    VERSION 0.0.0
     DESCRIPTION "BPF-based packet filtering framework"
     LANGUAGES C CXX
 )
@@ -16,7 +13,14 @@ project(bpfilter
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/tools/cmake")
 
 include(GitVersion)
-get_version_from_git()
+
+# Only use Git if the sources are the root of a repository: an archive could be
+# extracted into an unrelated repository.
+if (EXISTS ${CMAKE_SOURCE_DIR}/.git)
+    get_version_from_git()
+else ()
+    get_version_from_archive()
+endif ()
 
 message(NOTICE "bpfilter version ${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX}")
 
