@@ -39,6 +39,7 @@ in
         ./src
         ./CMakeLists.txt
         ./tools/cmake
+        ./tests/CMakeLists.txt
       ];
     };
 
