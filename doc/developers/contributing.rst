@@ -16,7 +16,7 @@ So before you open a PR:
 
 **Understand what you're submitting.** You should be able to explain every line, why it's correct, and what you ruled out. If you can't review your own diff, don't send it. We won't do that review for you.
 
-**Build and test it properly.** Configure and build with CMake the way the developer docs describe, run ``make -C $BUILD test_bin test`` (``make -C $BUILD fixstyle`` formats the code for you), and ``make -C $BUILD doc`` if you changed the documentation. The tests that cover your change matter most: the cmocka unit tests under ``tests/unit/``, plus the e2e suite where it applies. "I changed the code to fix X but didn't build or run it" is not a testing plan. If you're not a regular here yet, paste the test output into the PR. The summary line and pass counts are enough, and it's the fastest way to show us you actually ran it.
+**Build and test it properly.** Configure and build with CMake the way the developer docs describe, run ``make -C $BUILD test`` (``make -C $BUILD fixstyle`` formats the code for you), and ``make -C $BUILD doc`` if you changed the documentation. The tests that cover your change matter most: the cmocka unit tests under ``tests/unit/``, plus the e2e suite where it applies. "I changed the code to fix X but didn't build or run it" is not a testing plan. If you're not a regular here yet, paste the test output into the PR. The summary line and pass counts are enough, and it's the fastest way to show us you actually ran it.
 
 **Follow the style guide.** Formatting is enforced by ``.clang-format``, the rest is in :doc:`style`, and commits use ``component: subcomponent: short description``. Ignoring the style after it's been pointed out tells us the same thing an untested diff does: nobody looked.
 

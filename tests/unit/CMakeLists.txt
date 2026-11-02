@@ -98,3 +98,5 @@ bf_add_c_test(unit libbpfilter/rule.c)
 bf_add_c_test(unit libbpfilter/set.c)
 bf_add_c_test(unit libbpfilter/verdict.c)
 bf_add_c_test(unit libbpfilter/version.c)
+
+bf_tests_build(unit unit_bin)

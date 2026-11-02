@@ -115,3 +115,5 @@ add_custom_target(fuzzing
     DEPENDS fuzz_parser
     COMMENT "Running fuzzing tests (indefinitely)"
 )
+
+bf_tests_build(fuzzing fuzz_parser)

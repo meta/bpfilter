@@ -16,7 +16,6 @@ log = logging.getLogger("bfoptimizer")
 class MakeTarget(enum.StrEnum):
     FIXSTYLE = "fixstyle"
     BUILD = "all"
-    TEST_BIN = "test_bin"
     TEST = "test"
 
 

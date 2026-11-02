@@ -53,8 +53,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=debug -DENABLE_COVERAGE=1
 # Build
 make -C build
 
-# Run all tests (build test_bin first)
-make -C build test_bin test
+# Build and run all tests
+make -C build test
 
 # Run specific suite: unit, e2e, integration, check
 make -C build unit e2e integration check
