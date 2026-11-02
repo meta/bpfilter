@@ -55,7 +55,7 @@ sudo dnf install -y bpfilter bpfilter-devel
 sudo dnf install -y clang cmake gcc libbpf-devel bison flex sed xxd
 
 # Configure the project and build bpfilter
-cmake -S $SOURCES_DIR -B $BUILD_DIR -DNO_DOCS=ON -DNO_TESTS=ON -DNO_CHECKS=ON
+cmake -S $SOURCES_DIR -B $BUILD_DIR -DWITH_DOCS=OFF -DWITH_TESTS=OFF
 make -C $BUILD_DIR
 ```
 

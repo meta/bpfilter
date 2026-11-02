@@ -1,18 +1,40 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
 
-add_subdirectory(harness)
-add_subdirectory(unit)
-add_subdirectory(e2e)
-add_subdirectory(fuzz)
-add_subdirectory(integration)
-add_subdirectory(check)
-add_subdirectory(benchmarks)
-
 add_custom_target(test_bin
-    DEPENDS unit_bin e2e_bin fuzz_parser
     COMMENT "Building all test binaries"
 )
+
+if (WITH_TESTS_UNIT OR WITH_TESTS_E2E)
+    add_subdirectory(harness)
+endif ()
+
+if (WITH_TESTS_UNIT)
+    add_subdirectory(unit)
+    add_dependencies(test_bin unit_bin)
+endif ()
+
+if (WITH_TESTS_E2E)
+    add_subdirectory(e2e)
+    add_dependencies(test_bin e2e_bin)
+endif ()
+
+if (WITH_TESTS_FUZZING)
+    add_subdirectory(fuzz)
+    add_dependencies(test_bin fuzz_parser)
+endif ()
+
+if (WITH_TESTS_INTEGRATION)
+    add_subdirectory(integration)
+endif ()
+
+if (WITH_TESTS_CHECKS)
+    add_subdirectory(check)
+endif ()
+
+if (WITH_TESTS_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif ()
 
 if (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
     # Make has no jobserver for -j1. Pass its normalized -jN value to CTest
@@ -31,7 +53,7 @@ if (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
     )
 endif()
 
-if (${WITH_COVERAGE})
+if (ENABLE_COVERAGE)
     include(ProcessorCount)
 
     find_program(LCOV_BIN lcov REQUIRED)
@@ -71,11 +93,17 @@ if (${WITH_COVERAGE})
                 --branch-coverage
                 --css-file ${CMAKE_CURRENT_SOURCE_DIR}/coverage.css
 				${CMAKE_BINARY_DIR}/coverage.lcov > /dev/null;
-        COMMAND
-            cp ${CMAKE_BINARY_DIR}/.coverage_report.d.full ${CMAKE_BINARY_DIR}/.coverage_report.d
         BYPRODUCTS
             ${CMAKE_BINARY_DIR}/coverage.lcov
             ${CMAKE_BINARY_DIR}/coverage/index.html
         COMMENT "Generate the coverage.lcov summary file"
     )
+
+    # The dependency file only exists if the documentation is configured.
+    if (WITH_DOCS)
+        add_custom_command(TARGET coverage POST_BUILD
+            COMMAND
+                cp ${CMAKE_BINARY_DIR}/.coverage_report.d.full ${CMAKE_BINARY_DIR}/.coverage_report.d
+        )
+    endif ()
 endif()

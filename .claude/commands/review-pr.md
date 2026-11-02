@@ -19,7 +19,7 @@ Review pull request #$ARGUMENTS
 - Build and tests should be done in both modes `debug` and `release`.
 - Configure: `cmake -S . -B <build_dir> -DCMAKE_BUILD_TYPE=<mode>`
     - `build_dir`: `/tmp/bpfilter-pr-$ARGUMENTS`
-    - Use `-DWITH_COVERAGE=1` for coverage information
+    - Use `-DENABLE_COVERAGE=1` for coverage information
 
 ### Code review
 
@@ -107,7 +107,7 @@ Generate coverage information:
 make -C <build_dir> coverage
 ```
 
-- Requires `-DWITH_COVERAGE=1` and unit tests to have run
+- Requires `-DENABLE_COVERAGE=1` and unit tests to have run
 - Only analyse the coverage of the lines changed in the PR
 - Use gcov to check specific file coverage: `gcov -p <build_dir>/src/libbpfilter/CMakeFiles/libbpfilter.dir/<file>.o`
 - New lines: minimum 70% covered

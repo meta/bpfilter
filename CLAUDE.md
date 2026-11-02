@@ -48,7 +48,7 @@ doc/
 
 ```bash
 # Configure (use debug + coverage during development)
-cmake -S . -B build -DCMAKE_BUILD_TYPE=debug -DWITH_COVERAGE=1
+cmake -S . -B build -DCMAKE_BUILD_TYPE=debug -DENABLE_COVERAGE=1
 
 # Build
 make -C build
@@ -68,7 +68,9 @@ make -C build doc
 ```
 
 **Build options:**
-- `-DNO_DOCS=1`, `-DNO_TESTS=1`, `-DNO_CHECKS=1`
+- `-DWITH_DOCS=OFF`, `-DWITH_TESTS=OFF`: skip the documentation or all the tests
+- `-DWITH_TESTS_<TYPE>=ON|OFF`: override `WITH_TESTS` for `UNIT`, `E2E`, `INTEGRATION`, `FUZZING`, `CHECKS`, or `BENCHMARKS`
+- `-DENABLE_COVERAGE=1`: build with code coverage support
 
 ## Code style
 

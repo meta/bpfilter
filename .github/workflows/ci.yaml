@@ -88,7 +88,7 @@ jobs:
       - name: Checkout bpfilter
         uses: actions/checkout@v6
       - name: Configure the build
-        run: cmake -S $GITHUB_WORKSPACE -B $GITHUB_WORKSPACE/build -DNO_TESTS=1
+        run: cmake -S $GITHUB_WORKSPACE -B $GITHUB_WORKSPACE/build -DWITH_TESTS=OFF
       - name: Build all
         run: make -C $GITHUB_WORKSPACE/build -j `nproc`
 
@@ -117,7 +117,7 @@ jobs:
       - name: Mount bpffs
         run: mount bpffs /sys/fs/bpf -t bpf
       - name: Configure the build
-        run: cmake -S $GITHUB_WORKSPACE -B $GITHUB_WORKSPACE/build -DWITH_COVERAGE=1
+        run: cmake -S $GITHUB_WORKSPACE -B $GITHUB_WORKSPACE/build -DENABLE_COVERAGE=1
       - name: Build tests
         run: make -C $GITHUB_WORKSPACE/build -j `nproc` test_bin
 

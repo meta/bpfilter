@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
 
+find_package(cmocka REQUIRED)
+
 add_executable(setuserns EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/setuserns.c
 )

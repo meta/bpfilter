@@ -29,10 +29,20 @@ endif()
 
 include(GNUInstallDirs)
 
-option(NO_DOCS "Disable documentation generation" 0)
-option(NO_TESTS "Disable unit, end-to-end, and integration tests" 0)
-option(NO_CHECKS "Disable the check target (clang-tidy and clang-format" 0)
-option(WITH_COVERAGE "Build with code coverage support. Disabled by default" 0)
+option(WITH_DOCS "Define the documentation targets" ON)
+option(WITH_TESTS "Default value of the unset WITH_TESTS_<TYPE> options" ON)
+option(ENABLE_COVERAGE "Build with code coverage support" OFF)
+
+# Test types are plain variables because an option would cache the value of
+# WITH_TESTS from the first configuration. An explicit -DWITH_TESTS_<TYPE>
+# always wins, use -UWITH_TESTS_<TYPE> to restore the default.
+foreach (test_type UNIT E2E INTEGRATION FUZZING CHECKS BENCHMARKS)
+    if (NOT DEFINED WITH_TESTS_${test_type})
+        set(WITH_TESTS_${test_type} ${WITH_TESTS})
+    endif ()
+
+    message(STATUS "WITH_TESTS_${test_type}: ${WITH_TESTS_${test_type}}")
+endforeach ()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -61,7 +71,7 @@ add_library(bf_global_flags INTERFACE)
 target_compile_options(bf_global_flags
     INTERFACE
         -std=gnu17 -Wall -Wextra -fPIC
-        $<$<BOOL:${WITH_COVERAGE}>:-fprofile-arcs -ftest-coverage>
+        $<$<BOOL:${ENABLE_COVERAGE}>:-fprofile-arcs -ftest-coverage>
         $<$<CONFIG:debug>:-O0 -g3 -ggdb -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined>
         $<$<CONFIG:release>:-O2>
 )
@@ -71,7 +81,7 @@ target_include_directories(bf_global_flags
 )
 target_link_options(bf_global_flags
     INTERFACE
-        $<$<BOOL:${WITH_COVERAGE}>:-fprofile-arcs -ftest-coverage>
+        $<$<BOOL:${ENABLE_COVERAGE}>:-fprofile-arcs -ftest-coverage>
         $<$<CONFIG:debug>:-fsanitize=address -fsanitize=undefined>
 )
 
@@ -90,12 +100,10 @@ target_link_options(bf_global_flags_cxx
 add_subdirectory(src/libbpfilter)
 add_subdirectory(src/bfcli)
 
-if (NOT ${NO_DOCS})
+if (WITH_DOCS)
     add_subdirectory(doc)
 endif ()
 
-if (NOT ${NO_TESTS})
-    set(CMAKE_CTEST_ARGUMENTS "--output-on-failure;--label-exclude;fuzzing")
-    enable_testing()
-    add_subdirectory(tests)
-endif ()
+set(CMAKE_CTEST_ARGUMENTS "--output-on-failure;--label-exclude;fuzzing")
+enable_testing()
+add_subdirectory(tests)

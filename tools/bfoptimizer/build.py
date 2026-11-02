@@ -30,7 +30,7 @@ def configure(
             str(sources),
             "-B",
             str(build_dir),
-            "-DNO_DOCS=1",
+            "-DWITH_DOCS=OFF",
             "-DCMAKE_BUILD_TYPE=release",
         ],
         capture_output=True,
