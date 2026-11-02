@@ -1,0 +1,7 @@
+# Packit copies tools/rpm/bpfilter.spec to Fedora's dist-git when releasing, and
+# sets its version from the release's tag. See doc/developers/build.rst.
+upstream_project_url: https://github.com/meta/bpfilter
+upstream_package_name: bpfilter
+downstream_package_name: bpfilter
+upstream_tag_template: v{version}
+specfile_path: tools/rpm/bpfilter.spec

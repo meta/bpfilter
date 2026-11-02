@@ -107,6 +107,7 @@ set(doc_srcs
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/generation.rst
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/memory.rst
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/packets_processing.rst
+	${CMAKE_CURRENT_SOURCE_DIR}/developers/release.rst
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/style.rst
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/tests.rst
 	${CMAKE_CURRENT_SOURCE_DIR}/developers/modules/index.rst
