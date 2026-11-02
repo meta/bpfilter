@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
+
+"""
+Collect the commits, pull requests, contributors, and stats of a release, to
+write its release notes. The data is printed to stdout as JSON.
+
+The release covers START..END: START is excluded, END is included.
+
+  release-data              END is the tag on HEAD, START the previous tag
+  release-data END          START is the previous tag
+  release-data START END
+
+The previous tag is the closest tag reachable from the first parent of END.
+Without a previous tag, the release starts at the first commit, included.
+
+Contributors are the commit authors and the Co-authored-by trailers. A
+contributor is new if no commit up to START, included, has their name, their
+email, or their GitHub user.
+
+The pull requests and GitHub logins come from the repository gh uses for the
+current directory. Set GH_REPO to use another one.
+"""
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+
+# Number of commits to look up per GitHub API request.
+GITHUB_BATCH_SIZE = 50
+
+# %s is replaced with one aliased object() lookup per commit.
+COMMITS_QUERY = """
+query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    %s
+  }
+}
+
+fragment commit on Commit {
+  authors(first: 20) { nodes { email user { id login } } }
+  associatedPullRequests(first: 5) {
+    nodes { number title url state mergedAt author { login } }
+  }
+}
+"""
+
+# %s is replaced with one aliased history() lookup per GitHub user.
+HISTORY_QUERY = """
+query($owner: String!, $name: String!, $oid: GitObjectID!) {
+  repository(owner: $owner, name: $name) {
+    object(oid: $oid) {
+      ... on Commit {
+        %s
+      }
+    }
+  }
+}
+"""
+
+COAUTHORS = "%(trailers:key=Co-authored-by,valueonly)"
+
+
+class Error(Exception):
+    pass
+
+
+def run(*cmd: str) -> str:
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace"
+        )
+    except FileNotFoundError:
+        raise Error(f"{cmd[0]}: command not found") from None
+
+    if result.returncode:
+        raise Error(result.stderr.strip() or f"{cmd[0]} failed")
+
+    return result.stdout
+
+
+def git_log(fields: list[str], *revs: str) -> list[list[str]]:
+    """Return the format fields of each commit selected by revs."""
+    out = run("git", "log", "-z", "--format=" + "%x1f".join(fields), *revs, "--")
+    return [commit.split("\x1f") for commit in out.split("\0") if commit]
+
+
+def parse_coauthors(trailers: str) -> list[tuple[str, str]]:
+    """Return the (name, email) of each 'Name <email>' trailer value."""
+    return re.findall(r"^(.*?) *<(.+)>$", trailers, re.MULTILINE)
+
+
+def resolve(ref: str) -> str:
+    try:
+        return run(
+            "git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"
+        ).strip()
+    except Error:
+        raise Error(f"{ref}: no such commit") from None
+
+
+def previous_tag(sha: str) -> str | None:
+    try:
+        return run("git", "describe", "--tags", "--abbrev=0", f"{sha}^").strip()
+    except Error:
+        # No tag before sha, or sha is the first commit.
+        return None
+
+
+def known_identities(start: str | None) -> tuple[set[str], set[str]]:
+    """Return the names and emails of the contributors up to start, included."""
+    names, emails = set(), set()
+    if start:
+        for name, email, trailers in git_log(["%an", "%ae", COAUTHORS], start):
+            for n, e in [(name, email), *parse_coauthors(trailers)]:
+                names.add(n.casefold())
+                emails.add(e.lower())
+
+    return names, emails
+
+
+def query_repository(repository: str, query: str, **variables: str) -> dict:
+    """Run a GraphQL query on the GitHub repository and return its fields."""
+    owner, name = repository.split("/")
+    variables |= {"owner": owner, "name": name, "query": query}
+    args = [arg for key, value in variables.items() for arg in ("-f", f"{key}={value}")]
+    return json.loads(run("gh", "api", "graphql", *args))["data"]["repository"]
+
+
+def github_commits(repository: str, shas: list[str]) -> dict[str, dict | None]:
+    """Look up commits on GitHub. Commits GitHub doesn't know are None."""
+    commits = {}
+
+    for i in range(0, len(shas), GITHUB_BATCH_SIZE):
+        batch = shas[i : i + GITHUB_BATCH_SIZE]
+        lookups = "\n".join(
+            f'c{j}: object(oid: "{sha}") {{ ...commit }}' for j, sha in enumerate(batch)
+        )
+        found = query_repository(repository, COMMITS_QUERY % lookups)
+        commits.update((sha, found[f"c{j}"]) for j, sha in enumerate(batch))
+
+    return commits
+
+
+def github_authors(repository: str, start: str, users: dict[str, str]) -> set[str]:
+    """Return the logins of users that authored a commit up to start, included.
+
+    users maps logins to GitHub user IDs.
+    """
+    lookups = "\n".join(
+        f'u{i}: history(first: 1, author: {{id: "{user_id}"}}) {{ nodes {{ oid }} }}'
+        for i, user_id in enumerate(users.values())
+    )
+    found = query_repository(repository, HISTORY_QUERY % lookups, oid=start)
+    if not found["object"]:
+        # GitHub doesn't know start.
+        return set()
+
+    return {login for i, login in enumerate(users) if found["object"][f"u{i}"]["nodes"]}
+
+
+def diff_stats(start: str | None, end: str) -> dict:
+    if start:
+        revs = [f"{start}...{end}"]
+    else:
+        empty_tree = run("git", "hash-object", "-t", "tree", "/dev/null").strip()
+        revs = [empty_tree, end]
+
+    files = lines_added = lines_removed = 0
+    for line in run("git", "diff", "--numstat", *revs, "--").splitlines():
+        added, removed, _ = line.split("\t", 2)
+        files += 1
+        # Binary files have no line counts.
+        if added != "-":
+            lines_added += int(added)
+            lines_removed += int(removed)
+
+    return {
+        "files_changed": files,
+        "lines_added": lines_added,
+        "lines_removed": lines_removed,
+    }
+
+
+def collect(refs: list[str]) -> dict:
+    # Fail with git's own error outside of a repository.
+    run("git", "rev-parse", "--git-dir")
+
+    if not refs:
+        try:
+            refs = [run("git", "describe", "--tags", "--exact-match", "HEAD").strip()]
+        except Error:
+            raise Error("HEAD has no tag, give the end of the range") from None
+
+    end = refs[-1]
+    end_sha = resolve(end)
+    start = refs[0] if len(refs) == 2 else previous_tag(end_sha)
+    start_sha = resolve(start) if start else None
+
+    # gh api honors GH_REPO, unlike gh repo view.
+    repository = run("gh", "api", "repos/{owner}/{repo}", "--jq", ".full_name").strip()
+
+    revs = [end_sha, f"^{start_sha}"] if start_sha else [end_sha]
+    log = git_log(["%H", "%aI", "%an", "%ae", COAUTHORS, "%s", "%b"], *revs)
+    github = github_commits(repository, [fields[0] for fields in log])
+    known_names, known_emails = known_identities(start_sha)
+
+    missing = sum(found is None for found in github.values())
+    if missing:
+        print(
+            f"release-data: warning: {missing}/{len(log)} commits are not on "
+            "GitHub, so they have no pull request",
+            file=sys.stderr,
+        )
+
+    # GitHub users of the range, by lowercase login.
+    users = {
+        author["user"]["login"].lower(): author["user"]
+        for found in github.values()
+        if found
+        for author in found["authors"]["nodes"]
+        if author["user"]
+    }
+
+    commits, pull_requests, contributors = [], {}, {}
+
+    for sha, authored_at, name, email, trailers, subject, body in log:
+        found = github[sha] or {
+            "authors": {"nodes": []},
+            "associatedPullRequests": {"nodes": []},
+        }
+        users_by_email = {
+            author["email"].lower(): author["user"]
+            for author in found["authors"]["nodes"]
+            if author["user"]
+        }
+        authors = []
+        for n, e in [(name, email), *parse_coauthors(trailers)]:
+            # Without a GitHub user, fall back to the user named after the author.
+            user = users_by_email.get(e.lower()) or users.get(n.lower())
+            authors.append(
+                {"name": n, "email": e, "login": user["login"] if user else None}
+            )
+        prs = [
+            pr
+            for pr in found["associatedPullRequests"]["nodes"]
+            if pr["state"] == "MERGED"
+        ]
+
+        commits.append(
+            {
+                "sha": sha,
+                "authored_at": authored_at,
+                "author": authors[0],
+                "co_authors": authors[1:],
+                "subject": subject,
+                "body": body.strip(),
+                "pull_requests": [pr["number"] for pr in prs],
+            }
+        )
+
+        for pr in prs:
+            pull_request = pull_requests.setdefault(
+                pr["number"],
+                {
+                    "number": pr["number"],
+                    "title": pr["title"],
+                    "url": pr["url"],
+                    "author": (pr["author"] or {}).get("login"),
+                    "merged_at": pr["mergedAt"],
+                    "commits": [],
+                },
+            )
+            pull_request["commits"].append(sha)
+
+        # A contributor is a GitHub user, or an email that has no GitHub user.
+        counted = set()
+        for author in authors:
+            key = author["login"] or author["email"].lower()
+            contributor = contributors.setdefault(
+                key, {**author, "commits": 0, "first_time": True}
+            )
+            if key not in counted:
+                counted.add(key)
+                contributor["commits"] += 1
+            if (
+                author["name"].casefold() in known_names
+                or author["email"].lower() in known_emails
+            ):
+                contributor["first_time"] = False
+
+    # GitHub also knows the earlier commits of a user that used another name
+    # and another email.
+    new_users = {
+        contributor["login"]: users[contributor["login"].lower()]["id"]
+        for contributor in contributors.values()
+        if contributor["first_time"] and contributor["login"]
+    }
+    if start_sha and new_users:
+        for login in github_authors(repository, start_sha, new_users):
+            contributors[login]["first_time"] = False
+
+    return {
+        "repository": repository,
+        "start": {"ref": start, "sha": start_sha} if start else None,
+        "end": {"ref": end, "sha": end_sha},
+        "stats": {
+            "commits": len(commits),
+            "pull_requests": len(pull_requests),
+            "contributors": len(contributors),
+            "first_time_contributors": sum(
+                contributor["first_time"] for contributor in contributors.values()
+            ),
+            **diff_stats(start_sha, end_sha),
+        },
+        "contributors": sorted(
+            contributors.values(),
+            key=lambda contributor: (
+                -contributor["commits"],
+                contributor["name"].casefold(),
+            ),
+        ),
+        "pull_requests": list(pull_requests.values()),
+        "commits": commits,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [-h] [[START] END]",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("refs", nargs="*", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    if len(args.refs) > 2:
+        parser.error("expected at most 2 arguments: [START] END")
+
+    try:
+        data = collect(args.refs)
+    except Error as e:
+        sys.exit(f"release-data: {e}")
+
+    json.dump(data, sys.stdout, indent=2, ensure_ascii=False)
+    print()
+
+
+if __name__ == "__main__":
+    main()
