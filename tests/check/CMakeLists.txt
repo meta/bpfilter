@@ -95,3 +95,5 @@ add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L check
     COMMENT "Running check tests"
 )
+
+bf_tests_build(check libbpfilter bfcli)

@@ -201,3 +201,5 @@ bf_add_e2e_c_test(matchers/tcp_flags.cpp)
 bf_add_e2e_c_test(matchers/tcp_sport.cpp)
 bf_add_e2e_c_test(matchers/udp_dport.cpp)
 bf_add_e2e_c_test(matchers/udp_sport.cpp)
+
+bf_tests_build(e2e e2e_bin)

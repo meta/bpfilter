@@ -49,12 +49,6 @@ _VALIDATION_STAGES = [
     ),
     (
         AttemptStep.TEST,
-        "Building the tests",
-        MakeTarget.TEST_BIN,
-        AttemptResult.TEST_FAILED,
-    ),
-    (
-        AttemptStep.TEST,
         "Running the tests",
         MakeTarget.TEST,
         AttemptResult.TEST_FAILED,

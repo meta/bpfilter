@@ -118,8 +118,6 @@ jobs:
         run: mount bpffs /sys/fs/bpf -t bpf
       - name: Configure the build
         run: cmake -S $GITHUB_WORKSPACE -B $GITHUB_WORKSPACE/build -DENABLE_COVERAGE=1
-      - name: Build tests
-        run: make -C $GITHUB_WORKSPACE/build -j `nproc` test_bin
 
       - name: Run unit tests
         run: ctest --test-dir $GITHUB_WORKSPACE/build -L unit --verbose

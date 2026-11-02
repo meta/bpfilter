@@ -24,7 +24,7 @@ Fixes #
 <!--
 How did you verify this? Describe the build and tests you actually ran, not what
 you expect CI to do. Configure and build with CMake as the developer docs
-describe, run `make -C $BUILD test_bin test`, and `make -C $BUILD doc` if you
+describe, run `make -C $BUILD test`, and `make -C $BUILD doc` if you
 changed the documentation.
 
 If this is one of your first PRs here, paste the relevant test output below. The
@@ -53,6 +53,6 @@ the PR.
 
 - [ ] I understand every line in this PR and can explain why it is correct
 - [ ] I built the project and ran the tests covering this change
-- [ ] `make -C $BUILD test_bin test` passes and the code follows the style guide
+- [ ] `make -C $BUILD test` passes and the code follows the style guide
 - [ ] Commits are formatted as `component: subcomponent: short description`
 - [ ] I have disclosed any AI usage above

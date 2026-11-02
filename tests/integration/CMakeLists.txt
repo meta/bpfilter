@@ -26,3 +26,5 @@ add_custom_target(integration
     DEPENDS libbpfilter
     COMMENT "Running integration tests"
 )
+
+bf_tests_build(integration libbpfilter)

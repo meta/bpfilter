@@ -1,9 +1,33 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
 
-add_custom_target(test_bin
-    COMMENT "Building all test binaries"
-)
+# - Build targets before running the tests of the current directory
+#
+# Define a CTest fixture to build the targets required by the tests defined so
+# far in the current directory. `make test` and `ctest` will then build what
+# they need, instead of running missing or outdated binaries.
+#
+# Params:
+# - GROUP: name of the group the tests belong to.
+# - ARGN: targets to build.
+function(bf_tests_build GROUP)
+    get_directory_property(tests TESTS)
+
+    add_test(NAME "build.${GROUP}"
+        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${ARGN}
+    )
+
+    # The lock prevents concurrent fixtures from compiling the same objects.
+    set_tests_properties("build.${GROUP}" PROPERTIES
+        FIXTURES_SETUP "build.${GROUP}"
+        LABELS "${GROUP}"
+        RESOURCE_LOCK "bf_build"
+    )
+
+    set_tests_properties(${tests} PROPERTIES
+        FIXTURES_REQUIRED "build.${GROUP}"
+    )
+endfunction()
 
 if (WITH_TESTS_UNIT OR WITH_TESTS_E2E)
     add_subdirectory(harness)
@@ -11,17 +35,14 @@ endif ()
 
 if (WITH_TESTS_UNIT)
     add_subdirectory(unit)
-    add_dependencies(test_bin unit_bin)
 endif ()
 
 if (WITH_TESTS_E2E)
     add_subdirectory(e2e)
-    add_dependencies(test_bin e2e_bin)
 endif ()
 
 if (WITH_TESTS_FUZZING)
     add_subdirectory(fuzz)
-    add_dependencies(test_bin fuzz_parser)
 endif ()
 
 if (WITH_TESTS_INTEGRATION)
