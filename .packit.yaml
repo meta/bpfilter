@@ -1,7 +1,32 @@
-# Packit copies tools/rpm/bpfilter.spec to Fedora's dist-git when releasing, and
-# sets its version from the release's tag. See doc/developers/build.rst.
+# Release Monitoring triggers these jobs from Fedora's default dist-git branch.
+# Packit copies this file from each release tag. See doc/developers/release.rst.
 upstream_project_url: https://github.com/meta/bpfilter
 upstream_package_name: bpfilter
 downstream_package_name: bpfilter
 upstream_tag_template: v{version}
 specfile_path: tools/rpm/bpfilter.spec
+
+jobs:
+  - job: pull_from_upstream
+    trigger: release
+    dist_git_branches:
+      - fedora-all
+      - epel-9
+      - epel-10-all
+
+  - job: koji_build
+    trigger: commit
+    dist_git_branches:
+      - fedora-all
+      - epel-9
+      - epel-10-all
+    allowed_pr_authors:
+      - packit
+      - naccyde
+
+  - job: bodhi_update
+    trigger: commit
+    dist_git_branches:
+      - fedora-branched
+      - epel-9
+      - epel-10-all
