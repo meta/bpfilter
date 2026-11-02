@@ -23,6 +23,7 @@
    developers/packets_processing
    developers/generation
    developers/tests
+   developers/release
 
 .. toctree::
    :hidden:

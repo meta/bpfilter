@@ -1,0 +1,59 @@
+name: Package
+
+# Build the RPM packages in clean chroots, to ensure the spec file matches the
+# build system on every Fedora and EPEL branch the package is shipped to.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: fedora-rawhide-x86_64, experimental: true }
+          - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: fedora-44-x86_64 }
+          - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: fedora-43-x86_64 }
+          - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: centos-stream+epel-10-x86_64 }
+          - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: centos-stream+epel-9-x86_64 }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: fedora-rawhide-aarch64, experimental: true }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: fedora-44-aarch64 }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: fedora-43-aarch64 }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: centos-stream+epel-10-aarch64 }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: centos-stream+epel-9-aarch64 }
+    runs-on: ["${{ matrix.host.name }}"]
+    continue-on-error: ${{ matrix.chroot.experimental || false }}
+    container:
+      image: fedora:44
+      options: --privileged
+    name: "Package: ${{ matrix.chroot.name }} (${{ matrix.host.arch }})${{ matrix.chroot.experimental && ' [experimental]' || '' }}"
+    steps:
+      # Git must be installed first, otherwise the checkout has no history.
+      - name: Install dependencies
+        run: dnf install -y git-core mock
+      - name: Checkout bpfilter
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Mark the repository as safe for Git
+        run: git config --system --add safe.directory $GITHUB_WORKSPACE
+      - name: Create an unprivileged user for mock
+        run: useradd -G mock builder
+      - name: Build the packages
+        run: su builder -c "tools/rpm/mock-build ${{ matrix.chroot.name }} --no-bootstrap-image"

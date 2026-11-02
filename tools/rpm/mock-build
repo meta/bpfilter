@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
+
+# Build the RPM packages of the current commit in a clean mock chroot:
+#
+#   tools/rpm/mock-build fedora-rawhide-x86_64 [mock options...]
+#
+# Uncommitted changes are not packaged. The packages and logs are stored in a
+# temporary directory, printed once the build succeeds.
+
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+    echo "usage: $0 <mock chroot> [mock options...]" >&2
+    exit 1
+fi
+
+mock_root=$1
+shift
+
+repo=$(git rev-parse --show-toplevel)
+work=$(mktemp -d)
+results=$work/results
+
+# An archive only knows its version if a tag is reachable from the commit.
+if ! tag=$(git -C "$repo" describe --tags --abbrev=0 2>/dev/null); then
+    echo "error: no reachable tag, shallow clones can't be packaged" >&2
+    exit 1
+fi
+
+# Use the latest tag: the archive reports this version, and the spec's Version
+# is only updated when releasing.
+version=${tag#v}
+sed "s/^Version:.*/Version:    $version/" "$repo/tools/rpm/bpfilter.spec" \
+    > "$work/bpfilter.spec"
+git -C "$repo" archive --format=tar.gz --prefix="bpfilter-$version/" \
+    -o "$work/bpfilter-$version.tar.gz" HEAD
+
+mock -r "$mock_root" --resultdir "$results" "$@" \
+    --buildsrpm --spec "$work/bpfilter.spec" --sources "$work"
+
+if ! mock -r "$mock_root" --resultdir "$results" "$@" \
+    --rebuild "$results"/*.src.rpm; then
+    cat "$results/build.log" >&2 || true
+    exit 1
+fi
+
+echo "Packages stored in $results"

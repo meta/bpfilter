@@ -120,3 +120,16 @@ A full configuration (without any part disabled) will provide the following targ
 - ``benchmark``: run the benchmarks on ``bpfilter``.
 
 The build artifacts are located in ``$BUILD_DIRECTORY/output``.
+
+RPM packages
+------------
+
+``tools/rpm/bpfilter.spec`` defines the Fedora and EPEL packages. CI will build them each time a change lands on ``main``, and you can do the same on your machine with ``mock``:
+
+.. code-block:: shell
+
+    tools/rpm/mock-build fedora-rawhide-x86_64
+
+Uncommitted changes are not packaged, and the version comes from the latest tag.
+
+Fedora builds from its own copy of the spec file in dist-git, see :doc:`release`.
