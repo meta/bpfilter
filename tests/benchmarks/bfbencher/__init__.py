@@ -930,10 +930,11 @@ class BenchmarkContext:
             str(self.build_dir),
         ]
 
+        # Older commits only know about the NO_* options.
         if not doc:
-            cmd += ["-DNO_DOCS=1"]
+            cmd += ["-DWITH_DOCS=OFF", "-DNO_DOCS=1"]
         if not checks:
-            cmd += ["-DNO_CHECKS=1"]
+            cmd += ["-DWITH_TESTS_CHECKS=OFF", "-DNO_CHECKS=1"]
 
         return self._executor.run_benchmark_cmd("Configuring CMake", self._commit, cmd)
 

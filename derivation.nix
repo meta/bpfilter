@@ -64,9 +64,8 @@ in
     ];
 
     cmakeFlags = [
-      "-DNO_DOCS=1"
-      "-DNO_TESTS=1"
-      "-DNO_CHECKS=1"
+      "-DWITH_DOCS=OFF"
+      "-DWITH_TESTS=OFF"
     ];
 
     # We do not run the unit tests because the nix build sandbox doesn't

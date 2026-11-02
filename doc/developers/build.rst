@@ -92,19 +92,30 @@ You can then use CMake to generate the build system:
 
     cmake -S $BPFILTER_SOURCE -B $BUILD_DIRECTORY
 
-The usual CMake options are allowed (e.g. ``CMAKE_BUILD_TYPE``, ``CMAKE_INSTALL_PREFIX``...). The build configuration is modular, so you're free to enable/disable some parts of the projects according to your needs:
+The usual CMake options are allowed (e.g. ``CMAKE_BUILD_TYPE``, ``CMAKE_INSTALL_PREFIX``...). The build configuration is modular, so you're free to enable/disable some parts of the projects according to your needs. The ``WITH_*`` options define a set of targets, and CMake will look for their dependencies when it configures the project:
 
-- ``-DNO_DOCS``: disable the documentation, including the coverage and benchmarks report.
-- ``-DNO_TESTS``: disable unit tests, end-to-end tests, integration tests, and benchmarks.
-- ``-DNO_CHECKS``: disable style check and static analyzer.
+- ``-DWITH_DOCS``: the documentation, including the coverage and benchmarks report. Enabled by default.
+- ``-DWITH_TESTS``: the default value of the ``WITH_TESTS_*`` options below. Enabled by default.
+- ``-DWITH_TESTS_UNIT``: the unit tests.
+- ``-DWITH_TESTS_E2E``: the end-to-end tests.
+- ``-DWITH_TESTS_INTEGRATION``: the integration tests.
+- ``-DWITH_TESTS_FUZZING``: the fuzzing targets.
+- ``-DWITH_TESTS_CHECKS``: the style check and static analyzer.
+- ``-DWITH_TESTS_BENCHMARKS``: the benchmarks.
+
+A ``WITH_TESTS_*`` option you've set always takes precedence over ``WITH_TESTS``, and CMake will keep it for the next configurations: use ``-UWITH_TESTS_UNIT`` to restore the default value of ``WITH_TESTS_UNIT``. If you only want the unit tests, use ``-DWITH_TESTS=OFF -DWITH_TESTS_UNIT=ON``. The ``WITH_TESTS_*`` options are not listed by ``cmake -L``, but CMake prints their value when it configures the project.
+
+The ``ENABLE_*`` options modify the way the project is built:
+
+- ``-DENABLE_COVERAGE``: build with code coverage support, and define the ``coverage`` target. Disabled by default.
 
 A full configuration (without any part disabled) will provide the following targets:
 
-- ``core``, ``libbpfilter``, ``bfcli``: the ``bpfilter`` binaries.
+- ``libbpfilter``, ``bfcli``: the ``bpfilter`` binaries.
 - ``test_bin``: build the binaries needed to run the tests (below).
 - ``test``: run all the tests. This command will run ``unit``, ``check``, ``e2e``, and ``integration`` targets. See :doc:`tests` for more information.
 - ``fuzzing``: fuzz the CLI parser indefinitely. Use ``fuzzing_quick`` for a quick, 60-second fuzzing session.
 - ``check``: run ``clang-tidy`` and ``clang-format`` against the source files.
-- ``benchmarks``: run the benchmarks on ``bpfilter``.
+- ``benchmark``: run the benchmarks on ``bpfilter``.
 
 The build artifacts are located in ``$BUILD_DIRECTORY/output``.
