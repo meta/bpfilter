@@ -109,6 +109,8 @@ The ``ENABLE_*`` options modify the way the project is built:
 
 - ``-DENABLE_COVERAGE``: build with code coverage support, and define the ``coverage`` target. Disabled by default.
 
+``bpfilter`` gets its version from Git if you build from a repository, or from the archive if you build from a GitHub or ``git archive`` tarball. If neither is available, the version will be ``0.0.0``.
+
 A full configuration (without any part disabled) will provide the following targets:
 
 - ``libbpfilter``, ``bfcli``: the ``bpfilter`` binaries.

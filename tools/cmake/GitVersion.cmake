@@ -1,10 +1,35 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
 
+# - Get the project version from a Git archive
+#
+# Archives don't contain the Git history, but `git archive` replaces the
+# placeholder in `tools/cmake/archive_version` with the output of
+# `git describe`. The placeholder remains if the sources were copied any other
+# way, in which case the version doesn't change.
+function(get_version_from_archive)
+    file(STRINGS ${CMAKE_SOURCE_DIR}/tools/cmake/archive_version ARCHIVE_VERSION)
+
+    string(REGEX REPLACE "^v" "" CLEAN_TAG "${ARCHIVE_VERSION}")
+    if (NOT CLEAN_TAG MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)(-[0-9]+-g([0-9a-f]+))?$")
+        message(WARNING "Failed to get the archive's version, using default version ${PROJECT_VERSION}")
+        return()
+    endif ()
+
+    set(PROJECT_VERSION_MAJOR ${CMAKE_MATCH_1} PARENT_SCOPE)
+    set(PROJECT_VERSION_MINOR ${CMAKE_MATCH_2} PARENT_SCOPE)
+    set(PROJECT_VERSION_PATCH ${CMAKE_MATCH_3} PARENT_SCOPE)
+    set(PROJECT_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}" PARENT_SCOPE)
+
+    if (NOT "${CMAKE_MATCH_5}" STREQUAL "")
+        set(PROJECT_VERSION_SUFFIX "-${CMAKE_MATCH_5}" PARENT_SCOPE)
+    endif ()
+endfunction()
+
 function(get_version_from_git)
     find_package(Git)
     if (NOT Git_FOUND)
-        message(WARNING "Failed to find git, using default version ${DEFAULT_PROJECT_VERSION}")
+        message(WARNING "Failed to find git, using default version ${PROJECT_VERSION}")
         return()
     endif ()
 

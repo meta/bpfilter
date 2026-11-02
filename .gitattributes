@@ -1,0 +1,2 @@
+# Archives have no Git history: let `git archive` write the version instead.
+tools/cmake/archive_version export-subst
