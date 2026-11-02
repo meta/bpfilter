@@ -103,7 +103,7 @@ The usual CMake options are allowed (e.g. ``CMAKE_BUILD_TYPE``, ``CMAKE_INSTALL_
 - ``-DWITH_TESTS_CHECKS``: the style check and static analyzer.
 - ``-DWITH_TESTS_BENCHMARKS``: the benchmarks.
 
-A ``WITH_TESTS_*`` option you've set always takes precedence over ``WITH_TESTS``, and CMake will keep it for the next configurations: use ``-UWITH_TESTS_UNIT`` to restore the default value of ``WITH_TESTS_UNIT``. If you only want the unit tests, use ``-DWITH_TESTS=OFF -DWITH_TESTS_UNIT=ON``. The ``WITH_TESTS_*`` options are not listed by ``cmake -L``, but CMake prints their value when it configures the project.
+A ``WITH_TESTS_*`` option you've set always takes precedence over ``WITH_TESTS``, and CMake will keep it for the next configurations: use ``-UWITH_TESTS_UNIT`` to restore the default value of ``WITH_TESTS_UNIT``. If you only want the unit tests, use ``-DWITH_TESTS=OFF -DWITH_TESTS_UNIT=ON``. The ``WITH_TESTS_*`` options are not listed by ``cmake -L``, but CMake prints their value in the configuration summary.
 
 The ``ENABLE_*`` options modify the way the project is built:
 

@@ -22,8 +22,6 @@ else ()
     get_version_from_archive()
 endif ()
 
-message(NOTICE "bpfilter version ${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX}")
-
 # Store the number of CPUs in a variable, can be used to parallelize commands
 include(ProcessorCount)
 ProcessorCount(CPU_COUNT)
@@ -44,8 +42,6 @@ foreach (test_type UNIT E2E INTEGRATION FUZZING CHECKS BENCHMARKS)
     if (NOT DEFINED WITH_TESTS_${test_type})
         set(WITH_TESTS_${test_type} ${WITH_TESTS})
     endif ()
-
-    message(STATUS "WITH_TESTS_${test_type}: ${WITH_TESTS_${test_type}}")
 endforeach ()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -111,3 +107,6 @@ endif ()
 set(CMAKE_CTEST_ARGUMENTS "--output-on-failure;--label-exclude;fuzzing")
 enable_testing()
 add_subdirectory(tests)
+
+include(ConfigSummary)
+bf_print_config_summary()
