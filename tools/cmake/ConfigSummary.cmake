@@ -51,6 +51,8 @@ function(bf_print_config_summary)
         "${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}"
     )
     _bf_summary_add_line(summary "libbpf" "${bpf_VERSION}")
+    get_target_property(stub_count libbpfilter BF_ELFSTUB_COUNT)
+    _bf_summary_add_line(summary "BPF stubs" "${stub_count}")
     string(APPEND summary "\n")
 
     foreach (option IN ITEMS
