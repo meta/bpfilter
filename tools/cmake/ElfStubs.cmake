@@ -37,7 +37,7 @@ function(bf_target_add_elfstubs TARGET)
     find_program(SED_BIN sed REQUIRED)
 
     list(LENGTH _LOCAL_STUBS N_STUBS)
-    message(STATUS "Building ${N_STUBS} stub program(s) for target '${TARGET}'")
+    set_property(TARGET ${TARGET} PROPERTY BF_ELFSTUB_COUNT ${N_STUBS})
 
     set(ELFSTUBS_ELF_DIR ${CMAKE_CURRENT_BINARY_DIR}/elfstubs/elf)
     set(ELFSTUBS_INC_DIR ${CMAKE_CURRENT_BINARY_DIR}/elfstubs/src)
