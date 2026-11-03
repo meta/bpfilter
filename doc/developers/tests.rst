@@ -181,6 +181,41 @@ Each matcher test is a C++ binary located under ``tests/e2e/matchers/`` that bui
     }
 
 
+Kernel build tools
+------------------
+
+Use a clone of the Linux stable repository, with ``origin`` pointing to the
+stable repository, to prepare kernels for testing.
+
+``tests/kernel/resolve-version`` queries origin for the latest patch release
+in a series and fetches the selected commit if it is missing locally:
+
+.. code-block:: shell
+
+    $ bash tests/kernel/resolve-version /path/to/linux 6.6
+
+The output contains the commit hash and normalized version on separate lines.
+Use ``--separator STRING`` to change the output separator. Exact releases select
+their matching tag; series without a stable release use the latest candidate.
+
+Build the selected revision in a detached worktree:
+
+.. code-block:: shell
+
+    $ tests/kernel/buildkernel --sources /path/to/linux \
+        --revision v6.6.161 --output build/kernel/v6.6.161
+
+The output directory contains ``sources/`` and ``build/``. The builder reuses
+these directories and builds with ``make -j"$(nproc)"``. The shared configuration
+in ``tests/kernel/kernel.config`` enables the features needed by the tests.
+Use ``--config +OPTION`` to enable a setting, ``--config -OPTION`` to disable it,
+and ``--localversion SUFFIX`` to add a kernel release suffix.
+
+Configuration overrides must be accepted by Kconfig before compilation starts.
+The builder rejects concurrent builds in the same directory and preserves local
+worktree changes when switching revisions.
+
+
 Integration tests
 -----------------
 

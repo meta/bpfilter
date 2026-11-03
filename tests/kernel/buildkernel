@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+
+set -euo pipefail
+
+checkout=
+revision=
+destination=
+localversion=
+config_options=()
+
+while (( $# >= 2 )); do
+    case "$1" in
+        --sources) checkout=$2 ;;
+        --revision) revision=$2 ;;
+        --output) destination=$2 ;;
+        --localversion) localversion=$2 ;;
+        --config) config_options+=("$2") ;;
+        *) break ;;
+    esac
+    shift 2
+done
+
+if (( $# )) || [[ -z $checkout || -z $revision || -z $destination ]]; then
+    printf 'Usage: buildkernel --sources KERNEL_CLONE --revision REVISION --output VERSION_DIRECTORY [--localversion SUFFIX] [--config +OPTION|-OPTION ...]\n' >&2
+    exit 2
+fi
+
+checkout=$(cd -- "$checkout" && pwd -P)
+
+mkdir -p -- "$destination"
+destination=$(cd -- "$destination" && pwd -P)
+sources="$destination/sources"
+build="$destination/build"
+mkdir -p -- "$build"
+
+kernel_tests=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+base_fragment="$kernel_tests/kernel.config"
+fragment="$build/kernel.config"
+
+# Separate CTest invocations must not modify the same worktree or build.
+exec 9> "$build/.buildkernel.lock"
+if ! flock --nonblock 9; then
+    printf 'error: another kernel build is using %s\n' "$build" >&2
+    exit 1
+fi
+
+# Apply overrides after the shared defaults. The last override wins.
+cp -- "$base_fragment" "$fragment.tmp"
+for option in "${config_options[@]}"; do
+    if [[ ! $option =~ ^([+-])(CONFIG_)?([A-Z][A-Z0-9_]*)$ ]]; then
+        printf 'error: expected +OPTION or -OPTION, received %s\n' "$option" >&2
+        exit 2
+    fi
+    action=${BASH_REMATCH[1]}
+    symbol="CONFIG_${BASH_REMATCH[3]}"
+    sed -i "/^${symbol}=/d; /^# ${symbol} is not set$/d" "$fragment.tmp"
+    if [[ $action == + ]]; then
+        printf '%s=y\n' "$symbol" >> "$fragment.tmp"
+    else
+        printf '# %s is not set\n' "$symbol" >> "$fragment.tmp"
+    fi
+done
+mv -- "$fragment.tmp" "$fragment"
+
+# Keep one detached worktree per version, sharing objects with the clone.
+revision=$(git -C "$checkout" rev-parse --verify "${revision}^{commit}")
+if [[ ! -e $sources ]]; then
+    git -C "$checkout" worktree add --detach "$sources" "$revision" >&2
+elif [[ $(git -C "$sources" rev-parse HEAD) != "$revision" ]]; then
+    # Preserve local edits when reusing a worktree from an earlier run.
+    if git -C "$sources" symbolic-ref --quiet HEAD >/dev/null ||
+        [[ -n $(git -C "$sources" status --porcelain --untracked-files=all) ]]; then
+        printf 'error: cannot update a modified or attached kernel worktree: %s\n' "$sources" >&2
+        exit 1
+    fi
+    git -C "$sources" checkout --detach "$revision" >&2
+fi
+
+# Reuse the configuration until the required options change.
+if [[ ! -f $build/.config ]] || ! cmp -s "$fragment" "$build/bpfilter.config"; then
+    printf 'Configuring kernel for bpfilter e2e tests\n' >&2
+    (
+        cd -- "$sources"
+        KBUILD_OUTPUT="$build" vng --kconfig --config "$fragment"
+    ) >&2
+fi
+
+# Kconfig silently drops options whose dependencies are unavailable.
+while IFS= read -r setting; do
+    if [[ $setting == CONFIG_*=y ]]; then
+        grep -Fxq -- "$setting" "$build/.config" && continue
+    elif [[ $setting =~ ^#\ (CONFIG_[A-Z0-9_]+)\ is\ not\ set$ ]]; then
+        grep -Eq "^${BASH_REMATCH[1]}=[ym]$" "$build/.config" || continue
+    else
+        continue
+    fi
+    printf 'error: kernel configuration does not satisfy %s\n' "$setting" >&2
+    exit 1
+done < "$fragment"
+cp -- "$fragment" "$build/bpfilter.config"
+
+make -C "$sources" "O=$build" "LOCALVERSION=$localversion" -j"$(nproc)" >&2
+printf '%s\n' "$build"

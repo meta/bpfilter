@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+
+set -euo pipefail
+
+separator=$'\n'
+while (( $# >= 2 )); do
+    case "$1" in
+        --separator) separator=$2 ;;
+        *) break ;;
+    esac
+    shift 2
+done
+
+if [[ $# != 2 ]]; then
+    printf 'Usage: resolve-version [--separator STRING] KERNEL_CLONE VERSION\n' >&2
+    exit 2
+fi
+
+kernel=$1
+version=$2
+tag="v$version"
+
+# Query origin so series requests include releases not fetched locally.
+remote_tags=$(git -C "$kernel" ls-remote --tags origin \
+    "refs/tags/$tag" "refs/tags/$tag^{}" \
+    "refs/tags/$tag.*" "refs/tags/$tag-rc*")
+
+# Prefer the newest stable patch, falling back to the newest release candidate.
+if [[ $version =~ ^[0-9]+\.[0-9]+$ ]]; then
+    tags=$(printf '%s\n' "$remote_tags" |
+        sed -n 's|.*refs/tags/\([^^]*\)$|\1|p' | sort -Vr)
+    pattern=${version//./\\.}
+    candidate=
+    tag=
+
+    while IFS= read -r release; do
+        if [[ $release =~ ^v${pattern}(\.[0-9]+)?$ ]]; then
+            tag=$release
+            break
+        fi
+        if [[ -z $candidate && $release =~ ^v${pattern}-rc[0-9]+$ ]]; then
+            candidate=$release
+        fi
+    done <<< "$tags"
+
+    tag=${tag:-$candidate}
+    if [[ -z $tag ]]; then
+        printf 'error: no release tags for %s at origin of %s\n' "$version" "$kernel" >&2
+        exit 1
+    fi
+fi
+
+# Annotated tags advertise both a tag object and its peeled commit.
+revision=$(printf '%s\n' "$remote_tags" | awk -v ref="refs/tags/$tag" '
+    $2 == ref { tag = $1 }
+    $2 == ref "^{}" { commit = $1 }
+    END { print commit ? commit : tag }
+')
+if [[ -z $revision ]]; then
+    printf 'error: tag %s does not exist at origin of %s\n' "$tag" "$kernel" >&2
+    exit 1
+fi
+
+# Fetch only when the selected commit is missing. Worktrees use the commit hash,
+# so no local tag update is needed.
+if ! git -C "$kernel" cat-file -e "${revision}^{commit}" 2>/dev/null; then
+    git -C "$kernel" fetch --no-tags origin "refs/tags/$tag" >&2
+fi
+
+version=${tag#v}
+if [[ $version =~ ^([0-9]+\.[0-9]+)(-rc[0-9]+)?$ ]]; then
+    version="${BASH_REMATCH[1]}.0${BASH_REMATCH[2]:-}"
+fi
+
+# Emit the commit and normalized version. The Git tag stays internal.
+printf '%s%sv%s\n' "$revision" "$separator" "$version"
