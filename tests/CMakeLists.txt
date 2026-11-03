@@ -41,6 +41,10 @@ if (WITH_TESTS_E2E)
     add_subdirectory(e2e)
 endif ()
 
+if (WITH_TESTS_E2E AND TESTS_E2E_KERNEL_PATH)
+    add_subdirectory(kernel)
+endif ()
+
 if (WITH_TESTS_FUZZING)
     add_subdirectory(fuzz)
 endif ()

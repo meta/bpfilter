@@ -53,6 +53,15 @@ function(bf_print_config_summary)
     _bf_summary_add_line(summary "libbpf" "${bpf_VERSION}")
     get_target_property(stub_count libbpfilter BF_ELFSTUB_COUNT)
     _bf_summary_add_line(summary "BPF stubs" "${stub_count}")
+
+    get_property(kernel_versions GLOBAL PROPERTY BF_TEST_KERNEL_VERSIONS)
+    if (kernel_versions)
+        list(JOIN kernel_versions " " kernel_versions)
+        _bf_summary_add_line(summary "Kernel tests" "${kernel_versions}")
+    endif ()
+
+    _bf_summary_add_line(summary "Kernel path" "${TESTS_E2E_KERNEL_PATH}")
+
     string(APPEND summary "\n")
 
     foreach (option IN ITEMS
