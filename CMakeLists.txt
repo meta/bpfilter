@@ -44,6 +44,10 @@ foreach (test_type UNIT E2E INTEGRATION FUZZING CHECKS BENCHMARKS)
     endif ()
 endforeach ()
 
+set(TESTS_E2E_KERNEL_PATH "" CACHE PATH
+    "Path to a Linux stable Git clone for end-to-end kernel tests"
+)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BF_CONTACT "Quentin Deslandes <qde@naccy.de>")
