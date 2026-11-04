@@ -26,7 +26,7 @@ The following hooks are supported:
 
 .. note::
 
-    ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks operate on socket metadata rather than packet data. Supported matchers: ``meta.l3_proto``, ``meta.l4_proto``, ``meta.probability``, ``meta.dport``, ``meta.pid``, ``ip4.daddr``, ``ip4.dnet``, ``ip4.proto``, ``ip6.daddr``, ``ip6.dnet``, ``udp.dport``. Connect hooks additionally support ``tcp.dport``. Sendmsg hooks additionally support ``ip4.saddr``, ``ip4.snet``, ``ip6.saddr``, and ``ip6.snet``. Sets are supported with the same per-component restrictions: each set key component must be a matcher supported by the chain's hook. ``meta.dport`` is supported in sets, while ``meta.sport`` is unavailable on these hooks.
+    ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks operate on socket metadata rather than packet data. Supported matchers: ``meta.l3_proto``, ``meta.l4_proto``, ``meta.probability``, ``meta.dport``, ``meta.pid``, ``ip4.daddr``, ``ip4.dnet``, ``ip4.proto``, ``ip6.daddr``, ``ip6.dnet``, ``udp.dport``. Connect hooks additionally support ``tcp.dport``. Sendmsg hooks additionally support ``ip4.saddr``, ``ip4.snet``, ``ip6.saddr``, and ``ip6.snet``. Sets are supported with the same per-component restrictions: each set key component must be a matcher supported by the chain's hook. ``meta.dport`` is supported in sets, while ``meta.sport`` is unavailable on these hooks. ``meta.l3_proto`` follows the hook: ``ipv4`` on the ``*4`` hooks, ``ipv6`` on the ``*6`` hooks. For an ``AF_INET6`` socket with ``IPV6_V6ONLY`` off, UDP datagrams to an IPv4 address (``sockaddr_in`` or ``::ffff:a.b.c.d``) and UDP ``connect()`` with a ``sockaddr_in`` run the IPv4 hooks, while ``connect()`` to ``::ffff:a.b.c.d`` runs only the IPv6 hooks, where it matches ``ip6.daddr``.
 
 
 Hook options

@@ -13,7 +13,6 @@
 #include <bpf/libbpf.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/socket.h>
 
 #include <bpfilter/btf.h>
 #include <bpfilter/chain.h>
@@ -34,7 +33,6 @@
 #include "cgen/program.h"
 #include "cgen/runtime.h"
 #include "cgen/stub.h"
-#include "cgen/swich.h"
 #include "filter.h"
 
 // Forward definition to avoid header conflicts.
@@ -42,8 +40,6 @@ uint16_t htons(uint16_t hostshort);
 
 static int _bf_cgroup_sock_addr_gen_inline_prologue(struct bf_program *program)
 {
-    int r;
-
     assert(program);
 
     /* `R6` = `bpf_sock_addr` context pointer. Unlike packet-based flavors where
@@ -53,24 +49,20 @@ static int _bf_cgroup_sock_addr_gen_inline_prologue(struct bf_program *program)
     // The counters stub reads `pkt_size` unconditionally; zero it out.
     EMIT(program, BPF_ST_MEM(BPF_DW, BPF_REG_10, BF_PROG_CTX_OFF(pkt_size), 0));
 
-    /* Convert `bpf_sock_addr.family` to L3 protocol ID in `R7`, using the same
-     * `bf_swich` pattern as cgroup_skb. */
-    EMIT(program, BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_6,
-                              offsetof(struct bpf_sock_addr, family)));
-
-    {
-        _clean_bf_swich_ struct bf_swich swich =
-            bf_swich_get(program, BPF_REG_2);
-
-        EMIT_SWICH_OPTION(&swich, AF_INET,
-                          BPF_MOV64_IMM(BPF_REG_7, htons(ETH_P_IP)));
-        EMIT_SWICH_OPTION(&swich, AF_INET6,
-                          BPF_MOV64_IMM(BPF_REG_7, htons(ETH_P_IPV6)));
-        EMIT_SWICH_DEFAULT(&swich, BPF_MOV64_IMM(BPF_REG_7, 0));
-
-        r = bf_swich_generate(&swich);
-        if (r)
-            return r;
+    /* Take the L3 protocol from the hook, not from `bpf_sock_addr.family`: the
+     * kernel also runs the IPv4 hooks for dual-stack `AF_INET6` UDP sockets. */
+    switch (program->runtime.chain->hook) {
+    case BF_HOOK_CGROUP_SOCK_ADDR_CONNECT4:
+    case BF_HOOK_CGROUP_SOCK_ADDR_SENDMSG4:
+        EMIT(program, BPF_MOV64_IMM(BPF_REG_7, htons(ETH_P_IP)));
+        break;
+    case BF_HOOK_CGROUP_SOCK_ADDR_CONNECT6:
+    case BF_HOOK_CGROUP_SOCK_ADDR_SENDMSG6:
+        EMIT(program, BPF_MOV64_IMM(BPF_REG_7, htons(ETH_P_IPV6)));
+        break;
+    default:
+        return bf_err_r(-ENOTSUP, "unexpected hook: %s",
+                        bf_hook_to_str(program->runtime.chain->hook));
     }
 
     EMIT(program, BPF_LDX_MEM(BPF_W, BPF_REG_8, BPF_REG_6,

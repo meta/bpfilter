@@ -68,7 +68,8 @@ enum bf_flavor
      * cgroup_sock_addr BPF programs, attached to a cgroup to intercept
      * socket operations (connect, bind, sendmsg, recvmsg):
      * - Input: `struct bpf_sock_addr`
-     * - No packet data; L3/L4 protocol from socket metadata
+     * - No packet data; L3 protocol from the hook, L4 protocol from
+     *   `bpf_sock_addr.protocol`
      * - Return code: 0 to drop, 1 to accept
      */
     BF_FLAVOR_CGROUP_SOCK_ADDR,
