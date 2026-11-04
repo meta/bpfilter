@@ -92,6 +92,7 @@ static int _bf_nf_gen_inline_prologue(struct bf_program *program)
             return r;
     }
 
+    EMIT(program, BPF_ST_MEM(BPF_DW, BPF_REG_10, BF_PROG_CTX_OFF(l2_hdr), 0));
     EMIT(program, BPF_ST_MEM(BPF_W, BPF_REG_10, BF_PROG_CTX_OFF(l3_offset), 0));
 
     // Calculate the packet size (+ETH_HLEN) and store it into the runtime context

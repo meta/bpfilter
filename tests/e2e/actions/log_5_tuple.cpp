@@ -122,30 +122,52 @@ static void tupleLogging(void **state)
 
 static void rawLoggingUnchanged(void **state)
 {
-    _cleanup_close_ int fd = -1;
     struct bft_log_capture capture;
     struct ring_buffer *rb;
 
     (void)state;
 
-    BFT_CHAIN_SET(bf::Chain("test_raw_log", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, std::nullopt, BF_LOG_OPT_DEFAULT,
-                              {bf::Matcher::alwaysMatch()}));
+    for (auto hook: {BF_HOOK_XDP, BF_HOOK_TC_INGRESS, BF_HOOK_NF_LOCAL_IN,
+                     BF_HOOK_CGROUP_SKB_INGRESS}) {
+        _cleanup_close_ int fd = -1;
 
-    fd = bf_chain_logs_fd("test_raw_log");
-    assert_true(fd >= 0);
-    rb = ring_buffer__new(fd, bft_capture_log, &capture, nullptr);
-    assert_non_null(rb);
+        BFT_CHAIN_SET(bf::Chain("test_raw_log", hook, BF_VERDICT_ACCEPT)
+                      << bf::Rule(BF_VERDICT_DROP, std::nullopt,
+                                  BF_LOG_OPT_DEFAULT,
+                                  {bf::Matcher::alwaysMatch()}));
 
-    bft_assert_prog_run("test_raw_log", BF_HOOK_XDP,
-                        bft::Ethernet() / bft::IPv4 {} / bft::TCP {},
-                        bft_hook_drop(BF_HOOK_XDP));
-    assert_int_equal(1, ring_buffer__consume(rb));
-    assert_int_equal(1, capture.entries.size());
-    assert_int_equal(BF_LOG_TYPE_PACKET, capture.entries[0].log_type);
-    assert_int_equal(BF_LOG_PACKET_HEADERS, capture.entries[0].pkt.req_headers);
+        fd = bf_chain_logs_fd("test_raw_log");
+        assert_true(fd >= 0);
+        rb = ring_buffer__new(fd, bft_capture_log, &capture, nullptr);
+        assert_non_null(rb);
 
-    ring_buffer__free(rb);
+        for (const auto &pkt: {
+                 bft::Ethernet() / bft::IPv4 {} / bft::TCP {},
+                 bft::Ethernet() / bft::IPv6 {} / bft::UDP {},
+             }) {
+            bool ipv4 = pkt.data[ETH_HLEN] >> 4 == 4;
+            size_t l3Size = ipv4 ? bft::IPv4::size() : bft::IPv6::size();
+            size_t l4Size = ipv4 ? bft::TCP::size() : bft::UDP::size();
+            bool hasL2 = hook == BF_HOOK_XDP || hook == BF_HOOK_TC_INGRESS;
+
+            bft_assert_prog_run("test_raw_log", hook, pkt, bft_hook_drop(hook));
+            assert_int_equal(1, ring_buffer__consume(rb));
+            const auto &log = capture.entries.back();
+            assert_int_equal(BF_LOG_TYPE_PACKET, log.log_type);
+            assert_int_equal(BF_LOG_PACKET_HEADERS, log.pkt.req_headers);
+            assert_int_equal(BF_LOG_PACKET_HEADERS &
+                                 ~(hasL2 ? 0 : BF_FLAG(BF_LOG_OPT_LINK)),
+                             log.pkt.headers);
+            if (hasL2)
+                assert_memory_equal(pkt.data.data(), log.pkt.l2hdr, ETH_HLEN);
+            assert_memory_equal(pkt.data.data() + ETH_HLEN, log.pkt.l3hdr,
+                                l3Size);
+            assert_memory_equal(pkt.data.data() + ETH_HLEN + l3Size,
+                                log.pkt.l4hdr, l4Size);
+        }
+
+        ring_buffer__free(rb);
+    }
 }
 
 static void tupleLogRateEligibility(void **state)
