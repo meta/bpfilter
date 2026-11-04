@@ -3,7 +3,6 @@
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  */
 
-#include <chrono>
 #include <cstring>
 #include <vector>
 
@@ -175,11 +174,9 @@ static void tupleLogRateEligibility(void **state)
     _cleanup_close_ int fd = -1;
     struct bft_log_capture capture;
     struct ring_buffer *rb;
-    // Keep the interval below uptime so the first log is eligible in a new VM.
-    auto uptime = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now().time_since_epoch());
+    // 10^9 seconds, far beyond the host's uptime.
     bf::Rule rule(BF_VERDICT_DROP, bf_counter(), kTupleLog,
-                  {bf::Matcher::alwaysMatch()}, uptime.count() / 2);
+                  {bf::Matcher::alwaysMatch()}, 1'000'000'000'000'000'000ULL);
 
     (void)state;
 
@@ -202,8 +199,13 @@ static void tupleLogRateEligibility(void **state)
                         bft::Ethernet() / bft::IPv4 {} / bft::TCP {},
                         bft_hook_drop(BF_HOOK_XDP));
     assert_int_equal(1, ring_buffer__consume(rb));
+
+    bft_assert_prog_run("test_tuple_log_rate", BF_HOOK_XDP,
+                        bft::Ethernet() / bft::IPv4 {} / bft::TCP {},
+                        bft_hook_drop(BF_HOOK_XDP));
+    assert_int_equal(0, ring_buffer__consume(rb));
     assert_int_equal(1, capture.entries.size());
-    bft_assert_counter_eq("test_tuple_log_rate", 0, 2, -1);
+    bft_assert_counter_eq("test_tuple_log_rate", 0, 3, -1);
 
     ring_buffer__free(rb);
 }
