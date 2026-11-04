@@ -3,6 +3,7 @@
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  */
 
+#include <chrono>
 #include <cstring>
 #include <vector>
 
@@ -152,8 +153,11 @@ static void tupleLogRateEligibility(void **state)
     _cleanup_close_ int fd = -1;
     struct bft_log_capture capture;
     struct ring_buffer *rb;
+    // Keep the interval below uptime so the first log is eligible in a new VM.
+    auto uptime = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch());
     bf::Rule rule(BF_VERDICT_DROP, bf_counter(), kTupleLog,
-                  {bf::Matcher::alwaysMatch()}, 60'000'000'000ULL);
+                  {bf::Matcher::alwaysMatch()}, uptime.count() / 2);
 
     (void)state;
 
