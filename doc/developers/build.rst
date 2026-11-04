@@ -124,7 +124,7 @@ The build artifacts are located in ``$BUILD_DIRECTORY/output``.
 RPM packages
 ------------
 
-``tools/rpm/bpfilter.spec`` defines the Fedora and EPEL packages. CI will build them each time a change lands on ``main``, and you can do the same on your machine with ``mock``:
+``tools/rpm/bpfilter.spec`` defines the Fedora and EPEL packages. Packit builds them in Copr for each upstream pull request on x86_64 and aarch64. CI also builds them each time a change lands on ``main``, and you can do the same on your machine with ``mock``:
 
 .. code-block:: shell
 
@@ -132,4 +132,4 @@ RPM packages
 
 Uncommitted changes are not packaged, and the version comes from the latest tag.
 
-Fedora builds from its own copy of the spec file in dist-git, see :doc:`release`.
+Packit imports this spec into dist-git for each published GitHub release, see :doc:`release`.
