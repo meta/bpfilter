@@ -163,6 +163,7 @@ bf_add_e2e_shell_test(e2e rules/set_port_range.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_skb_dual_stack.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_connect4.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_connect6.sh ROOT)
+bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_dual_stack.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_sendmsg4.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_sendmsg6.sh ROOT)
 
