@@ -50,6 +50,14 @@ def guest(build, test):
         raise RuntimeError("the guest command requires root")
 
     print(f"Kernel: {os.uname().release}", flush=True)
+
+    if "lockdown=confidentiality" in Path("/proc/cmdline").read_text().split():
+        mount_filesystem("/sys/kernel/security", "securityfs")
+        lockdown = Path("/sys/kernel/security/lockdown").read_text().strip()
+        print(f"Lockdown: {lockdown}", flush=True)
+        if "[confidentiality]" not in lockdown:
+            raise RuntimeError("confidentiality lockdown is not active")
+
     mount_filesystem("/sys/fs/bpf", "bpf")
     mount_filesystem("/sys/fs/cgroup", "cgroup2")
 

@@ -89,6 +89,15 @@ endfunction()
 # Test the supported LTS kernels, the first oldest supported by bpfilter,
 # and the latest kernel.
 bf_add_kernel_tests(6.6)
+bf_add_kernel_tests(6.6
+    NAME lockdown
+    KERNEL_CONFIG
+        +CONFIG_SECURITY
+        +CONFIG_SECURITYFS
+        +CONFIG_SECURITY_LOCKDOWN_LSM
+        +CONFIG_SECURITY_LOCKDOWN_LSM_EARLY
+    BOOT_ARGUMENT lockdown=confidentiality
+)
 bf_add_kernel_tests(6.12)
 bf_add_kernel_tests(6.18)
 bf_add_kernel_tests(7.3)

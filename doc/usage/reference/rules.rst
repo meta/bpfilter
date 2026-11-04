@@ -18,9 +18,16 @@ With:
 
     - ``log $HEADERS``: log specific packet headers. ``$HEADERS`` is a comma-separated list of ``link`` (layer 2), ``internet`` (layer 3), and/or ``transport`` (layer 4). Only supported by packet-based hooks (XDP, TC, NF, cgroup_skb).
     - ``log 5-tuple``: log source and destination addresses and ports, and the transport protocol. This mode is only supported by packet-based hooks and only emits entries for IPv4/IPv6 packets using TCP or UDP. It is mutually exclusive with the packet-layer options; unsupported packets are not logged.
-    - ``log``: log all available data for the hook type. For packet-based hooks, this is equivalent to ``log link,internet,transport``. For ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks, this records the process ID (as seen from the initial PID namespace, and from the process' own PID namespace if it isn't the initial one), process name, destination address, and destination port. Sendmsg hooks additionally include the source address.
+    - ``log``: log all available data for the hook type. For packet-based hooks, this is equivalent to ``log link,internet,transport``. For ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks, this records the process ID (as seen from the initial PID namespace, and from the process' own PID namespace if it isn't the initial one and kernel memory reads are available), process name, destination address, and destination port. Sendmsg hooks additionally include the source address.
 
     Each form accepts an optional ``every $FREQUENCY`` suffix to rate-limit log events. ``$FREQUENCY`` is a positive number (integer or decimal) followed by a unit: ``ns``, ``us``, ``ms``, or ``s`` (e.g. ``every 1s``, ``every 500ms``, ``every 1.5s``). At most one log entry is emitted per ``$FREQUENCY`` interval per rule. Without ``every``, every match is logged.
+
+    Logging works with integrity and confidentiality lockdown enabled.
+    Neither ``LOCKDOWN_BPF_READ_KERNEL`` nor ``LOCKDOWN_BPF_WRITE_USER`` needs
+    to be disabled. Under confidentiality lockdown, socket logs omit the
+    namespace-local PID. The initial-namespace PID and other socket fields
+    remain available.
+
   - ``counter``: optional literal. If set, the filter will count the number of events matched by the rule. For packet-based hooks, this includes both the number of packets and the total bytes. For ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks, this counts the number of socket operations (``connect()`` or ``sendmsg()`` calls).
   - ``mark``: optional, ``$MARK`` must be a valid decimal or hexadecimal 32-bits value. If set, write the packet's marker value. This marker can be used later on in a rule (see ``meta.mark``) or with a TC filter. Only supported by TC (``BF_HOOK_TC_*``) and cgroup_skb (``BF_HOOK_CGROUP_SKB_*``) hooks.
   - ``$VERDICT``: action taken by the rule if the packet is matched against **all** the criteria: either ``ACCEPT``, ``DROP``, ``CONTINUE``, ``NEXT``, or ``REDIRECT``.

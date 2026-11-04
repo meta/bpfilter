@@ -10,6 +10,7 @@
 #include <linux/if_ether.h>
 
 #include <assert.h>
+#include <bpf/libbpf.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/socket.h>
@@ -503,8 +504,15 @@ static int _bf_cgroup_sock_addr_store_ns_pid(struct bf_program *program)
     int group_leader_off;
     int thread_pid_off;
     int level_off;
+    int r;
 
     assert(program);
+
+    // Keep the pre-zeroed ns_pid when lockdown blocks kernel reads.
+    r = libbpf_probe_bpf_helper(BPF_PROG_TYPE_CGROUP_SOCK_ADDR,
+                                BPF_FUNC_probe_read_kernel, NULL);
+    if (r <= 0)
+        return r;
 
     /* The pointers are only needed to reach the next one, they are read into
      * the walk slot. `level` and the PID itself are read into the `ns_pid`
