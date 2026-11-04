@@ -1,5 +1,5 @@
-# Release Monitoring triggers these jobs from Fedora's default dist-git branch.
-# Packit copies this file from each release tag. See doc/developers/release.rst.
+# The upstream spec is the source of truth for Fedora and EPEL packages.
+# Packit also syncs this configuration to dist-git for Koji and Bodhi jobs.
 upstream_project_url: https://github.com/meta/bpfilter
 upstream_package_name: bpfilter
 downstream_package_name: bpfilter
@@ -7,7 +7,17 @@ upstream_tag_template: v{version}
 specfile_path: tools/rpm/bpfilter.spec
 
 jobs:
-  - job: pull_from_upstream
+  - job: copr_build
+    trigger: pull_request
+    targets:
+      - fedora-all-x86_64
+      - fedora-all-aarch64
+      - epel-9-x86_64
+      - epel-9-aarch64
+      - epel-10-all-x86_64
+      - epel-10-all-aarch64
+
+  - job: propose_downstream
     trigger: release
     dist_git_branches:
       - fedora-all

@@ -3,20 +3,18 @@ Releasing
 
 A release starts with a tag, which defines ``bpfilter``'s version. Leave ``Version`` in ``tools/rpm/bpfilter.spec`` unchanged.
 
-Fedora builds the package from its own spec file in `dist-git <https://src.fedoraproject.org/rpms/bpfilter>`_. `Release Monitoring <https://release-monitoring.org>`_ detects new versions and triggers `Packit <https://packit.dev/docs/fedora-releases-guide/dist-git-onboarding>`_. Packit updates the version, uploads the tarball, and opens release pull requests. Merging them triggers production builds and Bodhi updates.
+``tools/rpm/bpfilter.spec`` is the source of truth for Fedora and EPEL packages. `Packit-as-a-Service <https://packit.dev/docs/packit-as-a-service/>`_ builds RPMs in Copr for upstream pull requests on both x86_64 and aarch64.
 
-.. note::
-
-    We're currently working on enabling `Packit-as-a-Service <https://github.com/marketplace/packit-as-a-service>`_, which would automatically build RPM packages on PRs and trigger a package update when a new release is published. This new workflow would use ``tools/rpm/bpfilter.spec`` as source of truth for the packages.
+Publishing a GitHub release triggers Packit's ``propose_downstream`` job. Packit imports the upstream spec from the release tag into ``bpfilter.spec`` in `dist-git <https://src.fedoraproject.org/rpms/bpfilter>`_, sets the version, uploads the tarball, and opens release pull requests. Merging them triggers production builds and Bodhi updates.
 
 Requirements
 ------------
 
-You need to be a maintainer of the Fedora package. Release Monitoring must map the upstream project to Fedora's ``bpfilter`` package. Set the package's monitoring status in dist-git to ``Monitoring``.
+Packit-as-a-Service must be enabled on the upstream GitHub repository.
 
-Packit reads its configuration from dist-git's default branch, ``rawhide``, for every target branch. Copy this repository's ``.packit.yaml`` to the root of ``rawhide`` once to enable the jobs. Packit copies later configuration changes from each release tag into its release pull requests. Include those changes before tagging.
+The downstream Koji and Bodhi jobs use ``.packit.yaml`` from dist-git's default branch, ``rawhide``. This configuration applies to every target branch.
 
-The configuration targets supported Fedora releases, EPEL 9, and active EPEL 10 branches. Keep the release jobs in GitHub's ``.packit.yaml`` so each copied configuration preserves the automation.
+Packit copies this repository's ``.packit.yaml`` from each release tag into its release pull requests. Include configuration changes before tagging. The configuration targets supported Fedora releases, EPEL 9, and active EPEL 10 branches. Keep the downstream jobs in GitHub's ``.packit.yaml`` so each copied configuration preserves the automation.
 
 Publish a new version
 ---------------------
@@ -24,22 +22,22 @@ Publish a new version
 Let's say we want to release ``$VERSION`` (e.g. ``0.8.0``):
 
 1. Make sure the ``CI`` and ``Package`` workflows are green on ``main``.
-2. Push the ``v$VERSION`` tag and publish its GitHub release.
-3. Wait for Release Monitoring to detect the version and Packit to open the dist-git pull requests.
-4. Review each pull request. Wait for its scratch build and tests to pass, then merge it. Each merge triggers a production Koji build for that branch. If the scratch build fails, you can either update the pull request manually.
+2. Push the ``v$VERSION`` tag and publish its GitHub release. Pushing a tag alone does not trigger Packit.
+3. Wait for Packit to open the dist-git pull requests.
+4. Review each pull request. Wait for its scratch build and tests to pass, then merge it. Each merge triggers a production Koji build for that branch. If the scratch build fails, update the upstream spec before publishing another release, or fix the pull request and apply the same fix upstream.
 5. Monitor the builds and Bodhi updates. Packit creates updates after successful builds for stable Fedora and EPEL branches. Fedora creates Rawhide updates automatically. Request promotion to stable in Bodhi when eligible if automatic promotion does not handle it.
 
 Change the package
 ------------------
 
-Keep packaging changes in ``tools/rpm/bpfilter.spec`` and apply the same changes to ``bpfilter.spec`` in the affected dist-git branches. The ``pull_from_upstream`` job updates the existing downstream spec file rather than importing the upstream spec. Preserve each branch's version when applying packaging changes.
+Keep packaging changes in ``tools/rpm/bpfilter.spec``. Packit builds them on upstream pull requests and imports them into dist-git with the next release. Do not maintain a separate downstream spec.
 
-Alternatively, you can manually trigger a Packit update using:
+To retry an update for an existing release, use:
 
 .. code-block:: shell
 
     packit propose-downstream https://github.com/meta/bpfilter.git $VERSION \
-      --dist-git-branch fedora-all,epel-10-all,epel9 \
+      --dist-git-branch fedora-all,epel-10-all,epel-9 \
       --pr
 
-Because this update uses ``propose-downstream`` and not ``pull_from_upstream``, ``tools/rpm/bpfilter.spec`` is used, instead of ``bpfilter.spec`` in dist-git.
+Packit uses the spec from the selected release tag. Commit packaging changes before tagging the next release.
