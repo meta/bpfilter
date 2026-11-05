@@ -16,7 +16,7 @@ import tempfile
 import time
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import diskcache  # type: ignore[import-untyped]
 import git
@@ -635,6 +635,29 @@ class LocalExecutor(Executor):
         return p.returncode if p.returncode is not None else 1
 
 
+def ignore_gitignored(root: pathlib.Path) -> Callable[[str, list[str]], set[str]]:
+    """Return a shutil.copytree ignore callable for the paths git ignores.
+
+    Ignored directories, such as build trees, can be large or contain
+    symlink loops, and the benchmarks don't need them.
+
+    Args:
+        root: Directory that copytree copies. Must be inside a git
+            repository.
+    """
+
+    output = git.Git(root).ls_files(
+        "--others", "--ignored", "--exclude-standard", "--directory", "-z"
+    )
+    ignored = {path.rstrip("/") for path in output.split("\0") if path}
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        prefix = pathlib.Path(directory).relative_to(root)
+        return {name for name in names if (prefix / name).as_posix() in ignored}
+
+    return ignore
+
+
 class FilesystemSource:
     """Manages source repository for benchmarking, including WIP commits."""
 
@@ -648,7 +671,12 @@ class FilesystemSource:
         self._local = local_src_dir
         self._renderer = renderer
 
-        shutil.copytree(self._path, self._local, dirs_exist_ok=True)
+        shutil.copytree(
+            self._path,
+            self._local,
+            ignore=ignore_gitignored(self._path),
+            dirs_exist_ok=True,
+        )
         self._detach_if_worktree()
         self._repo: git.Repo = git.Repo(self._local)
         self._retry_all: bool = False
