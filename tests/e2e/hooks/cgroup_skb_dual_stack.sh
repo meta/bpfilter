@@ -7,24 +7,6 @@ make_sandbox
 
 mkdir -p ${CGROUP_PATH}
 
-# Join the test cgroup, then send one UDP packet to address $2 from a new
-# socket of family $1. An AF_INET6 socket has IPV6_V6ONLY turned off, so it
-# sends IPv4 packets to ::ffff:a.b.c.d addresses. The 64-byte payload makes the
-# packet longer than an IPv6 header, so a program that wrongly reads it as IPv6
-# still reaches the rule instead of accepting it early as too short.
-udp_send() {
-    ${FROM_NS} python3 -c "
-import os, socket
-with open('${CGROUP_PATH}/cgroup.procs', 'w') as f:
-    f.write(str(os.getpid()))
-s = socket.socket(socket.$1, socket.SOCK_DGRAM)
-if s.family == socket.AF_INET6:
-    s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-s.sendto(b'x' * 64, ('$2', 9990))
-s.close()
-"
-}
-
 # Rule 0 drops and counts every IPv6 packet, rule 1 every IPv4 packet sent to
 # 127.0.0.1.
 ${FROM_NS} ${BFCLI} chain set --from-str "chain c BF_HOOK_CGROUP_SKB_EGRESS{cgpath=${CGROUP_PATH}} ACCEPT rule meta.l3_proto eq ipv6 counter DROP rule ip4.daddr eq 127.0.0.1 counter DROP"
