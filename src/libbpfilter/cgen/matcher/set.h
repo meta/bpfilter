@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 struct bf_matcher;
-struct bf_program;
+struct bf_codegen;
 
 /**
  * @brief Generate the map-lookup sequence shared by all set codegen paths.
@@ -23,7 +23,7 @@ struct bf_program;
  *        starts. Use `BF_PROG_SCR_OFF()` for scratch area offsets.
  * @return 0 on success, or negative errno on error.
  */
-int bf_set_generate_map_lookup(struct bf_program *program,
+int bf_set_generate_map_lookup(struct bf_codegen *program,
                                const struct bf_matcher *matcher,
                                int key_offset);
 
@@ -43,6 +43,6 @@ int bf_set_generate_map_lookup(struct bf_program *program,
  * @param addr_size Size of the address in bytes (4 for IPv4, 16 for IPv6).
  * @return 0 on success, or negative errno on error.
  */
-int bf_set_generate_trie_lookup(struct bf_program *program,
+int bf_set_generate_trie_lookup(struct bf_codegen *program,
                                 const struct bf_matcher *matcher,
                                 size_t src_offset, size_t addr_size);

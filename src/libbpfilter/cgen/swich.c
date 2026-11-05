@@ -18,8 +18,8 @@
 #include <bpfilter/helper.h>
 #include <bpfilter/logger.h>
 
+#include "cgen/codegen.h"
 #include "cgen/jmp.h"
-#include "cgen/program.h"
 #include "filter.h"
 
 /// Cleanup attribute for a @ref bf_swich_option variable.
@@ -95,7 +95,7 @@ static void _bf_swich_option_free(struct bf_swich_option **option)
     *option = NULL;
 }
 
-int bf_swich_init(struct bf_swich *swich, struct bf_program *program, int reg)
+int bf_swich_init(struct bf_swich *swich, struct bf_codegen *program, int reg)
 {
     assert(swich);
     assert(program);
@@ -167,7 +167,7 @@ int bf_swich_set_default(struct bf_swich *swich, const struct bpf_insn *insns,
 
 int bf_swich_generate(struct bf_swich *swich)
 {
-    struct bf_program *program = swich->program;
+    struct bf_codegen *program = swich->program;
 
     // Match an option against the value and jump to the related bytecode
     bf_list_foreach (&swich->options, option_node) {

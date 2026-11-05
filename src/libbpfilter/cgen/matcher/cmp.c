@@ -16,8 +16,8 @@
 #include <bpfilter/logger.h>
 #include <bpfilter/matcher.h>
 
+#include "cgen/codegen.h"
 #include "cgen/jmp.h"
-#include "cgen/program.h"
 
 uint8_t bf_cmp_get_jmp_ins(const struct bf_matcher *matcher)
 {
@@ -68,7 +68,7 @@ static inline uint64_t _bf_read_u64(const void *ptr)
  * @param scratch_reg Scratch register (clobbered).
  * @param data 64-bit value to load.
  */
-static int _bf_cmp_build_imm64(struct bf_program *program, int dst_reg,
+static int _bf_cmp_build_imm64(struct bf_codegen *program, int dst_reg,
                                int scratch_reg, uint64_t data)
 {
     EMIT(program, BPF_MOV32_IMM(dst_reg, (uint32_t)(data >> 32)));
@@ -97,7 +97,7 @@ static void _bf_prefix_to_mask(unsigned int prefixlen, uint8_t *mask,
         mask[prefixlen / 8] = (0xff << (8 - (prefixlen % 8))) & 0xff;
 }
 
-int bf_cmp_value(struct bf_program *program, const struct bf_matcher *matcher,
+int bf_cmp_value(struct bf_codegen *program, const struct bf_matcher *matcher,
                  const void *ref, unsigned int size, int reg)
 {
     enum bf_matcher_op op = bf_matcher_get_op(matcher);
@@ -199,7 +199,7 @@ int bf_cmp_value(struct bf_program *program, const struct bf_matcher *matcher,
     return 0;
 }
 
-int bf_cmp_masked_value(struct bf_program *program,
+int bf_cmp_masked_value(struct bf_codegen *program,
                         const struct bf_matcher *matcher, const void *ref,
                         unsigned int prefixlen, unsigned int size, int reg)
 {
@@ -302,7 +302,7 @@ int bf_cmp_masked_value(struct bf_program *program,
     return 0;
 }
 
-int bf_cmp_range(struct bf_program *program, const struct bf_matcher *matcher,
+int bf_cmp_range(struct bf_codegen *program, const struct bf_matcher *matcher,
                  uint32_t min, uint32_t max, int reg)
 {
     assert(program);
@@ -325,7 +325,7 @@ int bf_cmp_range(struct bf_program *program, const struct bf_matcher *matcher,
     return 0;
 }
 
-int bf_cmp_bitfield(struct bf_program *program,
+int bf_cmp_bitfield(struct bf_codegen *program,
                     const struct bf_matcher *matcher, uint32_t flags, int reg)
 {
     enum bf_matcher_op op = bf_matcher_get_op(matcher);

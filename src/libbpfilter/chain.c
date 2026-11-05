@@ -259,8 +259,9 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
     return 0;
 }
 
-static int _bf_chain_validate_rules(struct bf_chain *chain)
+int bf_chain_validate_rules(struct bf_chain *chain)
 {
+    uint32_t index = 0;
     int r;
 
     assert(chain);
@@ -270,6 +271,7 @@ static int _bf_chain_validate_rules(struct bf_chain *chain)
     bf_list_foreach (&chain->rules, rule_node) {
         struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
+        rule->index = index++;
         r = _bf_chain_check_rule(chain, rule);
         if (r)
             return r;
@@ -282,7 +284,6 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
                  enum bf_verdict policy, bf_hashset *sets, bf_list *rules)
 {
     _free_bf_chain_ struct bf_chain *_chain = NULL;
-    size_t ridx = 0;
     int r;
 
     assert(chain && name);
@@ -319,13 +320,8 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
     _chain->rules = bf_list_default(bf_rule_free, bf_rule_pack);
     if (rules)
         _chain->rules = bf_list_move(rules);
-    bf_list_foreach (&_chain->rules, rule_node) {
-        struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
-        rule->index = ridx++;
-    }
-
-    r = _bf_chain_validate_rules(_chain);
+    r = bf_chain_validate_rules(_chain);
     if (r) {
         if (rules)
             *rules = bf_list_move(&_chain->rules);
@@ -594,7 +590,7 @@ int bf_chain_apply_set_delta(struct bf_chain *chain, const char *set_name,
             return bf_err_r(r, "failed to calculate set difference");
     }
 
-    r = _bf_chain_validate_rules(chain);
+    r = bf_chain_validate_rules(chain);
     if (r)
         return bf_err_r(r, "failed to validate chain after set update");
 

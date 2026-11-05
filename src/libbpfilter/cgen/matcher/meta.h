@@ -6,7 +6,7 @@
 #pragma once
 
 struct bf_matcher;
-struct bf_program;
+struct bf_codegen;
 
-int bf_matcher_generate_meta(struct bf_program *program,
+int bf_matcher_generate_meta(struct bf_codegen *program,
                              const struct bf_matcher *matcher);

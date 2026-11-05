@@ -13,18 +13,13 @@
 
 #include <bpfilter/bpf.h>
 #include <bpfilter/btf.h>
-#include <bpfilter/chain.h>
-#include <bpfilter/core/list.h>
 #include <bpfilter/ctx.h>
 #include <bpfilter/dump.h>
 #include <bpfilter/elfstub.h>
 #include <bpfilter/helper.h>
-#include <bpfilter/hook.h>
 #include <bpfilter/io.h>
 #include <bpfilter/logger.h>
-#include <bpfilter/pack.h>
 
-#include "cgen/cgen.h"
 #include "core/lock.h"
 
 #define _free_bf_ctx_ __attribute__((cleanup(_bf_ctx_free)))
@@ -299,111 +294,6 @@ void bf_ctx_dump(prefix_t *prefix)
         return;
 
     _bf_ctx_dump(_bf_global_ctx, prefix);
-}
-
-int bf_ctx_get_cgen(struct bf_lock *lock, struct bf_cgen **cgen)
-{
-    _free_bf_cgen_ struct bf_cgen *_cgen = NULL;
-    int r;
-
-    assert(lock);
-    assert(cgen);
-
-    if (!_bf_global_ctx)
-        return bf_err_r(-EINVAL, "context is not initialized");
-
-    r = bf_cgen_new_from_dir_fd(&_cgen, lock);
-    if (r)
-        return bf_err_r(r, "failed to load chain '%s' from bpffs",
-                        lock->chain_name ? lock->chain_name : "(unknown)");
-
-    *cgen = TAKE_PTR(_cgen);
-
-    return 0;
-}
-
-int bf_ctx_get_cgens(struct bf_lock *lock, bf_list **cgens)
-{
-    _free_bf_list_ bf_list *_cgens = NULL;
-    _free_dir_ DIR *dir = NULL;
-    struct dirent *entry;
-    int iter_fd;
-    int r;
-
-    assert(lock);
-    assert(cgens);
-
-    if (!_bf_global_ctx)
-        return bf_err_r(-EINVAL, "context is not initialized");
-
-    r = bf_list_new(&_cgens, &bf_list_ops_default(bf_cgen_free, bf_cgen_pack));
-    if (r)
-        return bf_err_r(r, "failed to allocate cgen list");
-
-    /* fdopendir() takes ownership of the fd: dup so lock->pindir_fd remains
-     * valid for further uses. */
-    iter_fd = dup(lock->pindir_fd);
-    if (iter_fd < 0)
-        return bf_err_r(-errno, "failed to dup pin directory fd");
-
-    dir = fdopendir(iter_fd);
-    if (!dir) {
-        r = -errno;
-        close(iter_fd);
-        return bf_err_r(r, "failed to open pin directory for iteration");
-    }
-
-    while (true) {
-        _free_bf_cgen_ struct bf_cgen *cgen = NULL;
-
-        errno = 0;
-        entry = readdir(dir);
-        if (!entry && errno != 0) {
-            bf_warn_r(errno, "readdir failed, returning partial results");
-            break;
-        }
-        if (!entry)
-            break;
-
-        if (bf_streq(entry->d_name, ".") || bf_streq(entry->d_name, ".."))
-            continue;
-
-        if (entry->d_type != DT_DIR)
-            continue;
-
-        /* Skip in-flight staging directories owned by concurrent writers. */
-        if (bf_strneq(entry->d_name, BF_LOCK_STAGING_PREFIX,
-                      sizeof(BF_LOCK_STAGING_PREFIX) - 1))
-            continue;
-
-        r = bf_lock_acquire_chain(lock, entry->d_name, BF_LOCK_READ, false);
-        if (r) {
-            bf_warn_r(r, "failed to acquire READ lock on chain '%s', skipping",
-                      entry->d_name);
-            continue;
-        }
-
-        r = bf_cgen_new_from_dir_fd(&cgen, lock);
-        if (r) {
-            bf_warn_r(r, "failed to restore chain '%s', skipping",
-                      entry->d_name);
-            bf_lock_release_chain(lock);
-            continue;
-        }
-
-        bf_lock_release_chain(lock);
-
-        r = bf_list_push(_cgens, (void **)&cgen);
-        if (r) {
-            bf_warn_r(r, "failed to push chain '%s' to list, skipping",
-                      entry->d_name);
-            continue;
-        }
-    }
-
-    *cgens = TAKE_PTR(_cgens);
-
-    return 0;
 }
 
 int bf_ctx_token(void)

@@ -37,7 +37,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/btf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/chain.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/api.c
     ${CMAKE_CURRENT_SOURCE_DIR}/counter.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ctx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/dump.c
@@ -56,11 +56,11 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/pack.c
     ${CMAKE_CURRENT_SOURCE_DIR}/rule.c
     ${CMAKE_CURRENT_SOURCE_DIR}/set.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/state.h                 ${CMAKE_CURRENT_SOURCE_DIR}/state.c
     ${CMAKE_CURRENT_SOURCE_DIR}/verdict.c
     ${CMAKE_CURRENT_SOURCE_DIR}/version.c
 
     # Code generation engine
-    ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgen.h              ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgen.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_skb.h        ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_skb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_sock_addr.h  ${CMAKE_CURRENT_SOURCE_DIR}/cgen/cgroup_sock_addr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/dump.h              ${CMAKE_CURRENT_SOURCE_DIR}/cgen/dump.c
@@ -73,7 +73,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/nf.h                ${CMAKE_CURRENT_SOURCE_DIR}/cgen/nf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/packet.h            ${CMAKE_CURRENT_SOURCE_DIR}/cgen/packet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/printer.h           ${CMAKE_CURRENT_SOURCE_DIR}/cgen/printer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/cgen/program.h           ${CMAKE_CURRENT_SOURCE_DIR}/cgen/program.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/cgen/codegen.h           ${CMAKE_CURRENT_SOURCE_DIR}/cgen/codegen.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/prog/link.h         ${CMAKE_CURRENT_SOURCE_DIR}/cgen/prog/link.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/prog/map.h          ${CMAKE_CURRENT_SOURCE_DIR}/cgen/prog/map.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cgen/runtime.h

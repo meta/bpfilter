@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <bpfilter/bpf.h>
+#include <bpfilter/chain.h>
 #include <bpfilter/core/list.h>
 #include <bpfilter/counter.h>
 #include <bpfilter/dump.h>
@@ -20,6 +21,7 @@
 #include <bpfilter/hook.h>
 #include <bpfilter/logger.h>
 #include <bpfilter/pack.h>
+#include <bpfilter/rule.h>
 
 #include "cgen/prog/link.h"
 #include "cgen/prog/map.h"
@@ -516,4 +518,69 @@ void bf_handle_unload(struct bf_handle *handle)
     bf_map_free(&handle->lmap);
     bf_map_free(&handle->smap);
     bf_list_clean(&handle->sets);
+}
+
+int bf_handle_load_counters(const struct bf_handle *handle,
+                            struct bf_chain *chain)
+{
+    size_t n_rules;
+    int r;
+
+    assert(handle);
+    assert(chain);
+
+    n_rules = bf_list_size(&chain->rules);
+    bf_list_foreach (&chain->rules, rule_node) {
+        struct bf_rule *rule = bf_list_node_get_data(rule_node);
+
+        if (!rule->has_counters)
+            continue;
+
+        r = bf_handle_get_counter(handle, rule->index, &rule->counters);
+        if (r)
+            return bf_err_r(r, "failed to load counter for rule %u",
+                            rule->index);
+    }
+
+    r = bf_handle_get_counter(handle, n_rules, &chain->policy_counters);
+    if (r)
+        return bf_err_r(r, "failed to load policy counters for '%s'",
+                        chain->name);
+
+    r = bf_handle_get_counter(handle, n_rules + 1, &chain->error_counters);
+    if (r)
+        return bf_err_r(r, "failed to load error counters for '%s'",
+                        chain->name);
+
+    return 0;
+}
+
+int bf_handle_copy_counters(const struct bf_handle *src, struct bf_handle *dst,
+                            size_t n_rules)
+{
+    int r;
+
+    assert(src);
+    assert(dst);
+
+    if (!src->cmap || !dst->cmap)
+        return bf_err_r(-ENOENT, "missing counter map for counter transfer");
+
+    // n_rules entries for rules, +1 for policy, +1 for errors.
+    for (uint32_t i = 0; i < n_rules + 2; ++i) {
+        struct bf_counter counter;
+
+        r = bf_handle_get_counter(src, i, &counter);
+        if (r)
+            return bf_err_r(r, "failed to read counter %u", i);
+
+        if (!counter.count && !counter.size)
+            continue;
+
+        r = bf_handle_set_counter(dst, i, &counter);
+        if (r)
+            return bf_err_r(r, "failed to write counter %u", i);
+    }
+
+    return 0;
 }

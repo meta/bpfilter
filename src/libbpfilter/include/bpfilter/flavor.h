@@ -10,7 +10,7 @@
 #include <bpfilter/verdict.h>
 
 struct bf_matcher;
-struct bf_program;
+struct bf_codegen;
 struct bf_rule;
 
 /**
@@ -97,11 +97,11 @@ struct bf_flavor_ops
      * - Call @ref bf_stub_parse_l2_ethhdr, @ref bf_stub_parse_l3_hdr, and
      *   @ref bf_stub_parse_l4_hdr depending on which headers are available.
      */
-    int (*gen_inline_prologue)(struct bf_program *program);
+    int (*gen_inline_prologue)(struct bf_codegen *program);
 
-    int (*gen_inline_epilogue)(struct bf_program *program);
+    int (*gen_inline_epilogue)(struct bf_codegen *program);
 
-    int (*gen_inline_set_mark)(struct bf_program *program, uint32_t mark);
+    int (*gen_inline_set_mark)(struct bf_codegen *program, uint32_t mark);
 
     /**
      * @brief Generate bytecode to redirect a packet to another interface.
@@ -112,7 +112,7 @@ struct bf_flavor_ops
      * @return 0 on success, negative errno on failure. Returns -ENOTSUP if the
      *         flavor doesn't support redirect.
      */
-    int (*gen_inline_redirect)(struct bf_program *program, uint32_t ifindex,
+    int (*gen_inline_redirect)(struct bf_codegen *program, uint32_t ifindex,
                                enum bf_redirect_dir dir);
 
     /**
@@ -136,7 +136,7 @@ struct bf_flavor_ops
      * @param matcher Matcher to generate code for. Can't be NULL.
      * @return 0 on success, negative errno on error.
      */
-    int (*gen_inline_matcher)(struct bf_program *program,
+    int (*gen_inline_matcher)(struct bf_codegen *program,
                               const struct bf_matcher *matcher);
 
     /**
@@ -151,7 +151,7 @@ struct bf_flavor_ops
      * @param rule Rule whose log action to generate. Can't be NULL.
      * @return 0 on success, or negative errno on error.
      */
-    int (*gen_inline_log)(struct bf_program *program,
+    int (*gen_inline_log)(struct bf_codegen *program,
                           const struct bf_rule *rule);
 };
 

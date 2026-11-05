@@ -35,7 +35,6 @@ If a callee's Doxygen contradicts the generic rules below, the Doxygen wins. The
 
 - ``bf_hashset_add(set, &data)`` transfers ownership of ``*data`` to the hashset on success (and sets ``*data`` to ``NULL``), but **not** on ``-EEXIST``: the caller retains ownership when the element was already present. Both naive assumptions ("inputs are borrowed" and "inputs are always taken") are wrong; only the per-return-code contract is correct, and getting it wrong produces either a leak (on success) or a double-free (on ``-EEXIST``).
 - ``bf_set_add(dest, &to_add)`` and ``bf_set_remove(dest, &to_remove)`` consume their second argument on success: the function frees ``*to_add`` / ``*to_remove`` and sets the caller's pointer to ``NULL``. The generic rule "callers retain ownership of inputs" is reversed.
-- ``bf_cgen_new(&cgen, hook, chain)`` takes ownership of ``chain`` on success: after the call returns, the new codegen owns the chain and the caller must not free it. Same reversal as above, but for a constructor.
 - ``bf_vector_take(vec)`` is the inverse of the usual container contract: it transfers ownership of the vector's **backing buffer** out to the caller, leaving ``vec`` empty but reusable. The caller must ``free()`` the returned pointer.
 
 Each of these is a place where reading the Doxygen carefully is the only way to write correct calling code — applying the generic rules below would produce either leaks or double-frees.
@@ -190,7 +189,7 @@ Lists, vectors, and hashsets
 Kernel-side resources
 ---------------------
 
-Some ``bpfilter`` objects wrap resources whose real owner is the kernel: ``bf_map`` (BPF maps), ``bf_link`` (BPF links), ``bf_program`` (BPF programs). Each follows the standard heap-object discipline (``_free_bf_map_``, ``_free_bf_link_``, ``_free_bf_program_``) and its ``bf_<type>_free`` closes the embedded fd as part of cleanup.
+Some ``bpfilter`` objects wrap resources whose real owner is the kernel: ``bf_map`` (BPF maps), ``bf_link`` (BPF links), ``bf_handle`` (BPF programs, maps, and links). Each follows the standard heap-object discipline (``_free_bf_map_``, ``_free_bf_link_``, ``_free_bf_handle_``) and its ``bf_<type>_free`` closes the embedded fd as part of cleanup.
 
 What makes these objects unusual is that closing the fd does **not** necessarily destroy the kernel resource. A BPF map, link, or program persists as long as any of the following holds a reference:
 
@@ -202,7 +201,7 @@ Two consequences for reviewers:
 - Forgetting ``_free_bf_link_`` on a local leaks the userspace struct *and* potentially detaches the BPF program from its hook when the kernel link's last reference goes away. Cleanup correctness has user-visible side effects beyond memory.
 - Conversely, a pinned object survives the death of every userspace handle. ``bf_link_unpin`` removes the bpffs entry; until that runs, freeing the ``bf_link`` doesn't actually detach anything. See ``bf_link_free`` for the explicit warning.
 
-Reviewing a change that allocates, transfers, or releases a ``bf_map`` / ``bf_link`` / ``bf_program`` requires checking both the userspace lifetime (cleanup attribute, ``TAKE_PTR``) **and** the kernel-side lifetime (pinning / unpinning).
+Reviewing a change that allocates, transfers, or releases a ``bf_map`` / ``bf_link`` / ``bf_handle`` requires checking both the userspace lifetime (cleanup attribute, ``TAKE_PTR``) **and** the kernel-side lifetime (pinning / unpinning).
 
 
 A worked example

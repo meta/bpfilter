@@ -59,6 +59,9 @@ int bf_ruleset_get(bf_list *chains, bf_list *hookopts);
  * mapped 1 to 1. If a chain shouldn't be attached, the corresponding entry
  * in `hookopts` should be NULL.
  *
+ * The lists and their objects remain owned by the caller and unchanged on
+ * success and failure. Installed chains start with zero kernel counters.
+ *
  * @param chains List of chains to define. Can't be NULL.
  * @param hookopts List of hook options to attach the chains in `chain`. Can't
  *        be NULL.
@@ -78,6 +81,10 @@ int bf_ruleset_flush(void);
  *
  * If a chain with the same name already exists, it is detached and unloaded.
  * The new chain is loaded, and attached if hook options are defined.
+ *
+ * The caller retains ownership of `chain` and `hookopts` on success and
+ * failure. Their contents remain unchanged, including caller counters.
+ * The new program starts with zero kernel counters.
  *
  * @param chain Chain to set. Can't be NULL.
  * @param hookopts Hook options to attach the chain. If NULL, the chain is not
@@ -137,6 +144,10 @@ int bf_chain_logs_fd(const char *name);
  *
  * If a chain with the same name already exists, `-EEXIST` is returned.
  *
+ * The caller retains ownership of `chain` on success and failure. The chain
+ * remains unchanged, including caller counters. The new program starts with
+ * zero kernel counters.
+ *
  * @param chain Chain to load. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure.
  */
@@ -162,6 +173,11 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts);
  * chain is attached to a hook, the new program replaces the existing one
  * atomically, and the chain stays attached.
  *
+ * The operation borrows `chain` without modifying it or taking ownership.
+ * The replacement starts with zero kernel counters. Preparation failures
+ * leave the installed chain intact. Failures after changes to pins or
+ * attachments do not guarantee restoration of the previous configuration.
+ *
  * @param chain Chain to update. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure, including:
  * - `-ENOENT`: no chain found for this name.
@@ -177,6 +193,12 @@ int bf_chain_update(const struct bf_chain *chain);
  * are added to the set, and elements from `to_remove` are removed. If
  * `to_remove` has elements that already aren't present in the program,
  * these elements are ignored.
+ *
+ * The operation borrows both delta sets without modifying them or taking
+ * ownership. It edits a private candidate and transfers rule, policy, and
+ * error counters before publication. Preparation failures leave the
+ * installed chain intact. Failures after changes to pins or attachments do
+ * not guarantee restoration of the previous configuration.
  *
  * @param name Name of the chain containing the set. Can't be NULL.
  * @param to_add Set containing elements to add. The set name and key format

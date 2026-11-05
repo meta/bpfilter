@@ -12,6 +12,7 @@
 #include <bpfilter/hook.h>
 #include <bpfilter/pack.h>
 
+struct bf_chain;
 struct bf_link;
 struct bf_lock;
 struct bf_map;
@@ -22,7 +23,7 @@ struct bf_counter;
  *
  * @ref bf_handle is used to manage BPF object references (program fd, link,
  * maps) separately from the bytecode generation context. This allows the
- * bytecode generator (bf_program) to be discarded after generation while
+ * bytecode generator (bf_codegen) to be discarded after generation while
  * keeping the BPF objects alive.
  */
 
@@ -193,3 +194,27 @@ void bf_handle_detach(struct bf_handle *handle);
  * @param handle Handle to unload. Can't be NULL.
  */
 void bf_handle_unload(struct bf_handle *handle);
+
+/**
+ * @brief Read kernel counters into a destination chain.
+ *
+ * Only rules with counters enabled are refreshed. Policy and error counters
+ * are always refreshed. On failure, the destination may be partially updated.
+ *
+ * @param handle Source BPF handle. Can't be NULL.
+ * @param chain Destination chain matching the handle. Can't be NULL.
+ * @return 0 on success, or a negative errno value on failure.
+ */
+int bf_handle_load_counters(const struct bf_handle *handle,
+                            struct bf_chain *chain);
+
+/**
+ * @brief Transfer rule, policy, and error counters between loaded handles.
+ *
+ * @param src Source handle. Can't be NULL.
+ * @param dst Destination handle with zeroed counters. Can't be NULL.
+ * @param n_rules Number of rules, shared by both chains.
+ * @return 0 on success, or a negative errno value on failure.
+ */
+int bf_handle_copy_counters(const struct bf_handle *src, struct bf_handle *dst,
+                            size_t n_rules);
