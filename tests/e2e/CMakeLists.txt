@@ -159,6 +159,7 @@ bf_add_e2e_shell_test(e2e rules/redirect.sh ROOT)
 bf_add_e2e_shell_test(e2e rules/set_grouping.sh ROOT)
 bf_add_e2e_shell_test(e2e rules/set_min_size.sh ROOT)
 bf_add_e2e_shell_test(e2e rules/set_port_range.sh ROOT)
+bf_add_e2e_shell_test(e2e rules/unconditional.sh ROOT)
 
 bf_add_e2e_shell_test(e2e hooks/cgroup_skb_dual_stack.sh ROOT)
 bf_add_e2e_shell_test(e2e hooks/cgroup_sock_addr_connect4.sh ROOT)

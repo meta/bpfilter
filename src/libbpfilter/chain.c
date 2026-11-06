@@ -163,6 +163,26 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
 
     assert(rule);
 
+    if (rule->verdict < 0 || rule->verdict >= _BF_VERDICT_MAX) {
+        return bf_err_r(-EINVAL, "unknown verdict %d in rule %u", rule->verdict,
+                        rule->index);
+    }
+
+    if (rule->verdict == BF_VERDICT_REDIRECT) {
+        enum bf_flavor flavor = bf_hook_to_flavor(chain->hook);
+
+        if (flavor != BF_FLAVOR_XDP && flavor != BF_FLAVOR_TC) {
+            return bf_err_r(-ENOTSUP, "redirect is not supported by %s hook",
+                            bf_hook_to_str(chain->hook));
+        }
+
+        if (flavor == BF_FLAVOR_XDP &&
+            rule->redirect_dir != BF_REDIRECT_EGRESS) {
+            return bf_err_r(-ENOTSUP,
+                            "XDP redirect only supports 'out' direction");
+        }
+    }
+
     r = _bf_rule_has_unmatchable_set_matcher(chain, rule);
     if (r < 0)
         return r;
@@ -206,28 +226,36 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
 
     bf_list_foreach (&rule->matchers, matcher_node) {
         struct bf_matcher *matcher = bf_list_node_get_data(matcher_node);
+        enum bf_matcher_type type = bf_matcher_get_type(matcher);
+        enum bf_matcher_op op = bf_matcher_get_op(matcher);
         const struct bf_matcher_meta *meta;
 
         // Track if the chain uses IPv6 nexthdr matcher.
-        if (bf_matcher_get_type(matcher) == BF_MATCHER_IP6_NEXTHDR &&
-            !rule->disabled)
+        if (type == BF_MATCHER_IP6_NEXTHDR && !rule->disabled)
             chain->flags |= BF_FLAG(BF_CHAIN_STORE_NEXTHDR);
 
         // Ensure the matcher is compatible with the chain's hook.
-        meta = bf_matcher_get_meta(bf_matcher_get_type(matcher));
+        meta = bf_matcher_get_meta(type);
         if (!meta) {
-            return bf_err_r(-EINVAL, "unknown matcher type %d in rule",
-                            bf_matcher_get_type(matcher));
+            return bf_err_r(-EINVAL, "unknown matcher type %d in rule", type);
+        }
+
+        if (op < 0 || op >= _BF_MATCHER_OP_MAX ||
+            (type == BF_MATCHER_SET && op != BF_MATCHER_IN) ||
+            (type != BF_MATCHER_SET &&
+             (op == BF_MATCHER_IN || !bf_matcher_get_ops(type, op)))) {
+            return bf_err_r(-EINVAL,
+                            "unsupported operator %d for matcher %s in rule %u",
+                            op, bf_matcher_type_to_str(type), rule->index);
         }
 
         if (meta->unsupported_hooks & BF_FLAG(chain->hook)) {
-            return bf_err_r(
-                -ENOTSUP, "matcher %s is not compatible with %s",
-                bf_matcher_type_to_str(bf_matcher_get_type(matcher)),
-                bf_hook_to_str(chain->hook));
+            return bf_err_r(-ENOTSUP, "matcher %s is not compatible with %s",
+                            bf_matcher_type_to_str(type),
+                            bf_hook_to_str(chain->hook));
         }
 
-        if (bf_matcher_get_type(matcher) == BF_MATCHER_SET) {
+        if (type == BF_MATCHER_SET) {
             const struct bf_set *set =
                 bf_chain_get_set_for_matcher(chain, matcher);
 
