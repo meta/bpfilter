@@ -61,7 +61,7 @@ static void new_failure_preserves_inputs(void **state)
 
     // XDP chains cannot set packet marks.
     assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
-                            &sets, &rules));
+                            &sets, &rules, NULL));
     assert_null(chain);
     assert_int_equal(bf_hashset_size(&sets), 1);
     assert_int_equal(bf_list_size(&rules), 1);
