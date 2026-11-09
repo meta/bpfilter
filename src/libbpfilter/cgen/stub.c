@@ -33,7 +33,10 @@
 #include "cgen/swich.h"
 #include "filter.h"
 
-#define _BF_LOW_EH_BITMASK 0x1801800000000801ULL
+#define _BF_LOW_EH_BITMASK                                                     \
+    ((1ULL << IPPROTO_HOPOPTS) | (1ULL << IPPROTO_ROUTING) |                   \
+     (1ULL << IPPROTO_FRAGMENT) | (1ULL << IPPROTO_ESP) |                      \
+     (1ULL << IPPROTO_AH) | (1ULL << IPPROTO_DSTOPTS))
 
 /**
  * Generate stub to create a dynptr.
@@ -264,8 +267,8 @@ int bf_stub_parse_l3_hdr(struct bf_program *program)
         udpjmp = bf_jmpctx_get(program,
                                BPF_JMP_IMM(BPF_JEQ, BPF_REG_8, IPPROTO_UDP, 0));
 
-        /* For all the EH protocol numbers <64, use a bitmask:
-         * mask = (1<<0) | (1<<43) | (1<<44) | (1<<50) | (1<<51) | (1<<60)
+        /* For all the EH protocol numbers <64, use a bitmask
+         * (_BF_LOW_EH_BITMASK).
          *
          * Pseudo-code:
          * - r3 = 1 << r8 (nexthdr)
