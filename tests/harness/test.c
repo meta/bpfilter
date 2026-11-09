@@ -39,6 +39,17 @@ void bft_assert_counter_eq(const char *chain_name, size_t rule_idx,
         assert_int_equal((uint64_t)bytes, rule->counters.size);
 }
 
+void bft_assert_error_counter_eq(const char *chain_name, uint64_t packets)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _free_bf_hookopts_ struct bf_hookopts *hopts = NULL;
+
+    assert_non_null(chain_name);
+
+    assert_ok(bf_chain_get(chain_name, &chain, &hopts));
+    assert_int_equal(packets, chain->error_counters.count);
+}
+
 int btf_setup_redirect_streams(void **state)
 {
     bf_log_set_level(BF_LOG_DBG);

@@ -87,8 +87,9 @@ enum bf_elfstub_id
      * **Parameters**
      * - `ctx`: address of the `bf_runtime` context of the program.
      *
-     * **Return** The L4 protocol on success, or 0 if the program fails creating
-     *            a dynamic pointer slice.
+     * **Return** The L4 protocol on success, 255 if the packet has more than
+     *            16 extension headers, or 0 if the program fails creating a
+     *            dynamic pointer slice.
      */
     BF_ELFSTUB_PARSE_IPV6_EH,
 
@@ -100,8 +101,9 @@ enum bf_elfstub_id
      * **Parameters**
      * - `ctx`: address of the `bf_runtime` context of the program.
      *
-     * **Return** The L4 protocol on success, or 0 if the program fails creating
-     *            a dynamic pointer slice.
+     * **Return** The L4 protocol on success, 255 if the packet has more than
+     *            16 extension headers, or the current next header if the
+     *            program fails creating a dynamic pointer slice.
      */
     BF_ELFSTUB_PARSE_IPV6_NH,
 

@@ -12,8 +12,6 @@
 
 #include "cgen/runtime.h"
 
-#define BF_IPV6_EXT_MAX_CHAIN 6
-
 #define EH_COMMON_OFFSET 1
 #define EH_COMMON_SHIFT 3
 #define EH_AH_OFFSET 2
@@ -36,13 +34,14 @@ __u8 bf_parse_ipv6(struct bf_runtime *ctx)
     ctx->ipv6_eh = 0;
     ctx->l4_offset = ctx->l3_offset + sizeof(struct ipv6hdr);
 
-    for (int i = 0; i < BF_IPV6_EXT_MAX_CHAIN; ++i) {
+    // Walk one header past the cap to detect packets with too many headers
+    for (int i = 0; i <= BF_IPV6_EH_MAX; ++i) {
         struct ipv6_opt_hdr _ext;
         struct ipv6_opt_hdr *ext =
             bpf_dynptr_slice(&ctx->dynptr, ctx->l4_offset, &_ext, sizeof(_ext));
 
         if (!ext)
-            break;
+            return next_hdr_type;
 
         switch (next_hdr_type) {
         case IPPROTO_HOPOPTS:
@@ -84,5 +83,5 @@ __u8 bf_parse_ipv6(struct bf_runtime *ctx)
         next_hdr_type = ext->nexthdr;
     }
 
-    return next_hdr_type;
+    return BF_IPV6_EH_TOO_MANY;
 }

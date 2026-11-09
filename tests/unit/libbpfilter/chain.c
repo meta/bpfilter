@@ -444,9 +444,9 @@ static void apply_set_delta_updates_derived_state(void **state)
 
     assert_ok(bf_chain_apply_set_delta(chain, "set", delta_set, NULL));
     assert_false(rule->disabled);
-    assert_int_equal(
-        chain->flags,
-        BF_FLAGS(BF_CHAIN_LOG, BF_CHAIN_LOG_RATELIMIT, BF_CHAIN_STORE_NEXTHDR));
+    assert_int_equal(chain->flags,
+                     BF_FLAGS(BF_CHAIN_LOG, BF_CHAIN_LOG_RATELIMIT,
+                              BF_CHAIN_STORE_NEXTHDR, BF_CHAIN_MATCH_L4));
 
     assert_ok(bf_chain_apply_set_delta(chain, "set", NULL, delta_set));
     assert_true(rule->disabled);
@@ -498,6 +498,8 @@ static void empty_set_only_disables_in_rules(void **state)
     assert_true(in_rule->disabled);
     // Rule containing a "not in" matcher with an empty set is not disabled
     assert_false(not_in_rule->disabled);
+    // The "not in" rule's set is keyed on an L4 field
+    assert_int_equal(chain->flags, BF_FLAG(BF_CHAIN_MATCH_L4));
 }
 
 static void incompatible_matchers_disable_rule(void **state)

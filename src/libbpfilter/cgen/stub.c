@@ -33,7 +33,10 @@
 #include "cgen/swich.h"
 #include "filter.h"
 
-#define _BF_LOW_EH_BITMASK 0x1801800000000801ULL
+#define _BF_LOW_EH_BITMASK                                                     \
+    ((1ULL << IPPROTO_HOPOPTS) | (1ULL << IPPROTO_ROUTING) |                   \
+     (1ULL << IPPROTO_FRAGMENT) | (1ULL << IPPROTO_ESP) |                      \
+     (1ULL << IPPROTO_AH) | (1ULL << IPPROTO_DSTOPTS))
 
 /**
  * Generate stub to create a dynptr.
@@ -264,8 +267,8 @@ int bf_stub_parse_l3_hdr(struct bf_program *program)
         udpjmp = bf_jmpctx_get(program,
                                BPF_JMP_IMM(BPF_JEQ, BPF_REG_8, IPPROTO_UDP, 0));
 
-        /* For all the EH protocol numbers <64, use a bitmask:
-         * mask = (1<<0) | (1<<43) | (1<<44) | (1<<50) | (1<<51) | (1<<60)
+        /* For all the EH protocol numbers <64, use a bitmask
+         * (_BF_LOW_EH_BITMASK).
          *
          * Pseudo-code:
          * - r3 = 1 << r8 (nexthdr)
@@ -297,6 +300,32 @@ int bf_stub_parse_l3_hdr(struct bf_program *program)
         else
             EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_PARSE_IPV6_EH);
         EMIT(program, BPF_MOV64_REG(BPF_REG_8, BPF_REG_0));
+
+        /* Too many extension headers to find the L4 protocol: drop the
+         * packet instead of letting it skip the L4 matchers. */
+        if (program->runtime.chain->flags & BF_FLAG(BF_CHAIN_MATCH_L4)) {
+            _clean_bf_jmpctx_ struct bf_jmpctx _ =
+                bf_jmpctx_get(program, BPF_JMP_IMM(BPF_JNE, BPF_REG_8,
+                                                   BF_IPV6_EH_TOO_MANY, 0));
+
+            EMIT(program, BPF_MOV64_REG(BPF_REG_1, BPF_REG_10));
+            EMIT(program,
+                 BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
+            EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
+            EMIT(program, BPF_MOV32_IMM(BPF_REG_3,
+                                        bf_program_error_counter_idx(program)));
+            EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
+
+            if (bf_ctx_is_verbose(BF_VERBOSE_BPF))
+                EMIT_PRINT(program, "too many IPv6 extension headers");
+
+            r = program->runtime.ops->get_verdict(BF_VERDICT_DROP, &ret_code);
+            if (r)
+                return r;
+
+            EMIT(program, BPF_MOV64_IMM(BPF_REG_0, ret_code));
+            EMIT(program, BPF_EXIT_INSN());
+        }
 
         ehjmp = bf_jmpctx_get(program, BPF_JMP_A(0));
 
