@@ -590,16 +590,25 @@ static int _bf_program_generate_log(struct bf_program *program,
         EMIT(program, BPF_EMIT_CALL(BPF_FUNC_ktime_get_ns));
 
         EMIT(program, BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_9, 0));
-        EMIT(program, BPF_MOV64_REG(BPF_REG_2, BPF_REG_0));
-        EMIT(program, BPF_ALU64_REG(BPF_SUB, BPF_REG_2, BPF_REG_1));
 
-        // Load log_rate_ns as a 64-bit immediate into R1.
-        EMIT(program, rate_insn[0]);
-        EMIT(program, rate_insn[1]);
+        /* last_log_ts is 0 until the rule logs for the first time: log right
+         * away, otherwise nothing is logged until the uptime reaches
+         * log_rate_ns. */
+        {
+            _clean_bf_jmpctx_ struct bf_jmpctx _ =
+                bf_jmpctx_get(program, BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 0));
 
-        // Skip the log while delta is smaller than log_rate_ns.
-        rate_ctx = bf_jmpctx_get(program,
-                                 BPF_JMP_REG(BPF_JLT, BPF_REG_2, BPF_REG_1, 0));
+            EMIT(program, BPF_MOV64_REG(BPF_REG_2, BPF_REG_0));
+            EMIT(program, BPF_ALU64_REG(BPF_SUB, BPF_REG_2, BPF_REG_1));
+
+            // Load log_rate_ns as a 64-bit immediate into R1.
+            EMIT(program, rate_insn[0]);
+            EMIT(program, rate_insn[1]);
+
+            // Skip the log while delta is smaller than log_rate_ns.
+            rate_ctx = bf_jmpctx_get(
+                program, BPF_JMP_REG(BPF_JLT, BPF_REG_2, BPF_REG_1, 0));
+        }
 
         EMIT(program, BPF_STX_MEM(BPF_DW, BPF_REG_9, BPF_REG_0, 0));
     }
