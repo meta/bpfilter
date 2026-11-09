@@ -24,6 +24,19 @@
  */
 
 /**
+ * IPv6 packets with more extension headers than this are dropped by chains
+ * matching on L4 fields.
+ */
+#define BF_IPV6_EH_MAX 16
+
+/**
+ * Returned by the IPv6 parsers if the packet has more than `BF_IPV6_EH_MAX`
+ * extension headers. 255 is a reserved protocol number: extension headers
+ * ending on protocol 255 give the same value.
+ */
+#define BF_IPV6_EH_TOO_MANY 255
+
+/**
  * @brief Return the offset of a field in the runtime context, from `BPF_REG_10`.
  *
  * @param field Field to get the offset of.

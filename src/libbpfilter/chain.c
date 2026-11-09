@@ -156,6 +156,28 @@ static int _bf_rule_has_incompatible_matchers(const struct bf_chain *chain,
     return 0;
 }
 
+/**
+ * @brief Check if a matcher depends on the packet's L4 protocol or header.
+ *
+ * @param type Matcher type.
+ * @param meta Meta of the matcher type. Can't be NULL.
+ * @return True if the matcher depends on the L4 protocol or header.
+ */
+static bool _bf_matcher_uses_l4(enum bf_matcher_type type,
+                                const struct bf_matcher_meta *meta)
+{
+    switch (type) {
+    case BF_MATCHER_META_L4_PROTO:
+    case BF_MATCHER_META_SPORT:
+    case BF_MATCHER_META_DPORT:
+    case BF_MATCHER_META_FLOW_PROBABILITY:
+    case BF_MATCHER_IP6_NEXTHDR:
+        return true;
+    default:
+        return meta->layer == BF_MATCHER_LAYER_4;
+    }
+}
+
 static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
 {
     const uint8_t tuple = BF_FLAG(BF_LOG_OPT_5_TUPLE);
@@ -227,6 +249,10 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
                 bf_hook_to_str(chain->hook));
         }
 
+        if (!rule->disabled &&
+            _bf_matcher_uses_l4(bf_matcher_get_type(matcher), meta))
+            chain->flags |= BF_FLAG(BF_CHAIN_MATCH_L4);
+
         if (bf_matcher_get_type(matcher) == BF_MATCHER_SET) {
             const struct bf_set *set =
                 bf_chain_get_set_for_matcher(chain, matcher);
@@ -252,6 +278,10 @@ static int _bf_chain_check_rule(struct bf_chain *chain, struct bf_rule *rule)
                                     bf_matcher_type_to_str(set->key[i]),
                                     bf_hook_to_str(chain->hook));
                 }
+
+                if (!rule->disabled &&
+                    _bf_matcher_uses_l4(set->key[i], comp_meta))
+                    chain->flags |= BF_FLAG(BF_CHAIN_MATCH_L4);
             }
         }
     }

@@ -209,6 +209,8 @@ IPv6
 
     The following IPv6 extension header names are recognized by bpfilter: hop, routing, frag, ah, dst, mh.
 
+    bpfilter parses up to 16 IPv6 extension headers. Chains matching on L4 fields (``meta.l4_proto``, ``meta.sport``, ``meta.dport``, ``meta.flow_probability``, ``ip6.nexthdr``, and the TCP, UDP, ICMP and ICMPv6 matchers) drop IPv6 packets with more extension headers and count them as errors.
+
 TCP
 ---
 

@@ -23,7 +23,7 @@ constexpr size_t kEthernetAddrLen = 6;
  */
 struct Packet
 {
-    std::array<uint8_t, 128> data = {};
+    std::array<uint8_t, 256> data = {};
     size_t len = 0;
 };
 
@@ -119,6 +119,14 @@ struct IPv6HopByHop
 
     [[nodiscard]] static size_t size();
     [[nodiscard]] size_t write(uint8_t *buf, uint8_t proto) const;
+};
+
+/**
+ * @brief IPv6 Destination Options header, same layout as Hop-by-Hop.
+ */
+struct IPv6DstOpts: IPv6HopByHop
+{
+    static constexpr uint8_t ip_proto = 60; // IPPROTO_DSTOPTS
 };
 
 /**

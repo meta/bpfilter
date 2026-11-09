@@ -174,6 +174,14 @@ void bft_sockets_free(struct bft_sockets **sockets);
 void bft_assert_counter_eq(const char *chain_name, size_t rule_idx,
                            uint64_t packets, int64_t bytes);
 
+/**
+ * @brief Assert that a chain's error counter matches `packets`.
+ *
+ * @param chain_name Name of the chain to query. Can't be NULL.
+ * @param packets Expected packet count.
+ */
+void bft_assert_error_counter_eq(const char *chain_name, uint64_t packets);
+
 int btf_setup_create_tmpdir(void **state);
 int bft_teardown_close_tmpdir(void **state);
 
