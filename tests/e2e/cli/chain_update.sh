@@ -24,6 +24,33 @@ ${FROM_NS} ${BFCLI} chain update --name chain_load_xdp_3 --from-str "chain chain
 ping -c 1 -W 0.1 ${NS_IP_ADDR}
 ${FROM_NS} ${BFCLI} chain flush --name chain_load_xdp_3
 
+# A failed update leaves the attached chain unchanged
+${FROM_NS} ${BFCLI} chain set --from-str "chain chain_update_rollback BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT rule ip4.proto icmp DROP"
+(! ping -c 1 -W 0.1 ${NS_IP_ADDR})
+# A bf_ctx_tmp directory makes persisting the context fail
+${FROM_NS} mkdir ${WORKDIR}/bpf/bpfilter/chain_update_rollback/bf_ctx_tmp
+(! ${FROM_NS} ${BFCLI} chain update --from-str "chain chain_update_rollback BF_HOOK_XDP ACCEPT")
+(! ping -c 1 -W 0.1 ${NS_IP_ADDR})
+chain_output=$(${FROM_NS} ${BFCLI} chain get --name chain_update_rollback)
+echo "$chain_output" | grep -q 'ip4.proto'
+${FROM_NS} rmdir ${WORKDIR}/bpf/bpfilter/chain_update_rollback/bf_ctx_tmp
+${FROM_NS} ${BFCLI} chain update --from-str "chain chain_update_rollback BF_HOOK_XDP ACCEPT"
+ping -c 1 -W 0.1 ${NS_IP_ADDR}
+${FROM_NS} ${BFCLI} chain flush --name chain_update_rollback
+
+# Same for a Netfilter chain, whose links are recreated on update
+${FROM_NS} ${BFCLI} chain set --from-str "chain chain_update_rollback_nf BF_HOOK_NF_LOCAL_IN{priorities=101-102} ACCEPT rule ip4.proto icmp DROP"
+${FROM_NS} mkdir ${WORKDIR}/bpf/bpfilter/chain_update_rollback_nf/bf_ctx_tmp
+(! ${FROM_NS} ${BFCLI} chain update --from-str "chain chain_update_rollback_nf BF_HOOK_NF_LOCAL_IN ACCEPT")
+(! ping -c 1 -W 0.1 ${NS_IP_ADDR})
+chain_output=$(${FROM_NS} ${BFCLI} chain get --name chain_update_rollback_nf)
+echo "$chain_output" | grep -q 'ip4.proto'
+test "$(${FROM_NS} find ${WORKDIR}/bpf/bpfilter/chain_update_rollback_nf/ -name 'bf_link*' | wc -l)" = "2"
+${FROM_NS} rmdir ${WORKDIR}/bpf/bpfilter/chain_update_rollback_nf/bf_ctx_tmp
+${FROM_NS} ${BFCLI} chain update --from-str "chain chain_update_rollback_nf BF_HOOK_NF_LOCAL_IN ACCEPT"
+ping -c 1 -W 0.1 ${NS_IP_ADDR}
+${FROM_NS} ${BFCLI} chain flush --name chain_update_rollback_nf
+
 # The chain's hook can't change, whether the chain is attached or not
 ${FROM_NS} ${BFCLI} chain set --from-str "chain chain_update_hook_xdp BF_HOOK_XDP ACCEPT"
 (! ${FROM_NS} ${BFCLI} chain update --from-str "chain chain_update_hook_xdp BF_HOOK_TC_INGRESS ACCEPT")

@@ -525,39 +525,47 @@ int bf_cgen_update(struct bf_cgen *cgen, struct bf_chain **new_chain,
         r = bf_link_update(old_handle->link, new_handle->prog_fd);
         if (r) {
             bf_err_r(r, "failed to update bf_link object with new program");
-            if (bf_handle_pin(old_handle, lock) < 0)
-                bf_err("failed to repin old handle, ignoring");
-            return r;
+            goto err_rollback;
         }
 
         // We updated the old link, we need to store it in the new handle
         bf_swap(new_handle->link, old_handle->link);
     }
 
+    r = bf_handle_pin(new_handle, lock);
+    if (r) {
+        bf_err_r(r, "failed to pin new handle");
+        goto err_rollback;
+    }
+
+    r = _bf_cgen_persist(
+        &(struct bf_cgen) {.chain = *new_chain, .handle = new_handle},
+        lock->chain_fd);
+    if (r) {
+        bf_err_r(r, "failed to persist cgen for '%s'", (*new_chain)->name);
+        bf_handle_unpin(new_handle, lock);
+        goto err_rollback;
+    }
+
     bf_swap(cgen->handle, new_handle);
-
-    r = bf_handle_pin(cgen->handle, lock);
-    if (r)
-        return bf_err_r(r, "failed to pin new handle");
-
-    r = _bf_cgen_persist(cgen, lock->chain_fd);
-    if (r) {
-        bf_handle_unpin(cgen->handle, lock);
-        return bf_err_r(r, "failed to persist cgen for '%s'",
-                        cgen->chain->name);
-    }
-
-    bf_chain_free(&cgen->chain);
-    cgen->chain = TAKE_PTR(*new_chain);
-
-    r = _bf_cgen_persist(cgen, lock->chain_fd);
-    if (r) {
-        bf_handle_unpin(cgen->handle, lock);
-        return bf_err_r(r, "failed to persist cgen for '%s'",
-                        cgen->chain->name);
-    }
+    bf_swap(cgen->chain, *new_chain);
 
     return 0;
+
+err_rollback:
+    // The pinned context is only replaced on success: restore the old handle.
+    if (new_handle->link) {
+        int err = bf_link_update(new_handle->link, old_handle->prog_fd);
+        if (err)
+            bf_err_r(err, "failed to restore the old program on the link");
+
+        bf_swap(old_handle->link, new_handle->link);
+    }
+
+    if (bf_handle_pin(old_handle, lock) < 0)
+        bf_err("failed to repin old handle, ignoring");
+
+    return r;
 }
 
 void bf_cgen_detach(struct bf_cgen *cgen)

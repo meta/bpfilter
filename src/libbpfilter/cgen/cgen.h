@@ -153,6 +153,15 @@ enum bf_cgen_update_flags
  * On success, the new program is stored in the codegen, and the previous
  * program is unloaded and freed.
  *
+ * The caller keeps ownership of `*new_chain` and must free it.
+ *
+ * @post
+ * - On success: the codegen holds the new chain, and `*new_chain` points to
+ *   the codegen's previous chain.
+ * - On failure: `*new_chain` and the pinned context are unchanged, and
+ *   `cgen` still holds the previous chain and handle. The link and the
+ *   pins point to the previous program, unless restoring them fails.
+ *
  * @param cgen Codegen to update. Can't be NULL.
  * @param new_chain Chain containing the new rules, sets, and policy.
  *        Can't be NULL.
