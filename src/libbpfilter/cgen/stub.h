@@ -72,6 +72,10 @@ int bf_stub_parse_l2_ethhdr(struct bf_codegen *program);
  * If the L3 protocol is not supported, this function returns before requesting
  * a dynamic pointer slice, and the L3 protocol ID register is set to 0.
  *
+ * If the chain matches on L4 fields, IPv6 packets with more than
+ * @c BF_IPV6_EH_MAX extension headers are dropped and counted in the
+ * parser-drop counter.
+ *
  * @param program Program to emit instructions into.
  * @return 0 on success, or negative errno value on error.
  */

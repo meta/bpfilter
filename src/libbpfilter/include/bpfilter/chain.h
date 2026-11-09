@@ -46,6 +46,9 @@ enum bf_chain_flags
     /** A rule will filter on IPv6 nexthdr field. */
     BF_CHAIN_STORE_NEXTHDR,
 
+    /** A rule matches on the L4 protocol or header. */
+    BF_CHAIN_MATCH_L4,
+
     _BF_CHAIN_FLAGS_MAX,
 };
 

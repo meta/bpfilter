@@ -27,6 +27,7 @@ It shows the number of packets and bytes that matched the rule.
 The chain's ``policy`` counter records packets that reached the policy.
 The ``error`` counter records processing errors.
 Packet hooks display a ``parser-drop`` counter for packets dropped before rule evaluation because they fail parser requirements.
+Chains matching on L4 fields drop and count IPv6 packets with more than 16 extension headers.
 On XDP and TC, bpfilter parses up to 16 in-frame 802.1Q or 802.1ad tags.
 It drops and counts frames with a truncated VLAN tag or more than 16 tags.
 
