@@ -854,6 +854,136 @@ static void get_set_by_name(void **state)
     assert_null(bf_chain_get_set_by_name(chain, "bft_set_missing"));
 }
 
+static void redirect_validation(void **state)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
+    struct bf_rule *rule = NULL;
+
+    (void)state;
+
+    // NF does not support REDIRECT, even after an unconditional DROP.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_DROP;
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_REDIRECT;
+    bf_rule_set_redirect(rule, 1, BF_REDIRECT_EGRESS);
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_NF_LOCAL_IN,
+                            BF_VERDICT_ACCEPT, NULL, &rules));
+    bf_list_clean(&rules);
+
+    // XDP does not support ingress redirects.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_REDIRECT;
+    bf_rule_set_redirect(rule, 1, BF_REDIRECT_INGRESS);
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // XDP supports egress redirects.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_REDIRECT;
+    bf_rule_set_redirect(rule, 1, BF_REDIRECT_EGRESS);
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_ok(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT, NULL,
+                           &rules));
+    bf_chain_free(&chain);
+
+    // TC supports ingress redirects.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_REDIRECT;
+    bf_rule_set_redirect(rule, 1, BF_REDIRECT_INGRESS);
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_ok(bf_chain_new(&chain, "test", BF_HOOK_TC_INGRESS,
+                           BF_VERDICT_ACCEPT, NULL, &rules));
+}
+
+static void matcher_operator_validation(void **state)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
+    struct bf_rule *rule = NULL;
+    uint32_t addr = 0;
+    uint8_t flags = 1;
+
+    (void)state;
+
+    // An unconditional DROP must not hide an unsupported scalar operator.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = BF_VERDICT_DROP;
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_IP4_SADDR, BF_MATCHER_ANY,
+                                  &addr, sizeof(addr), false));
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // Membership requires a SET matcher, not a scalar IN matcher.
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_IP4_SADDR, BF_MATCHER_IN,
+                                  &addr, sizeof(addr), false));
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // Reject an operator past the enum bounds.
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_IP4_SADDR,
+                                  _BF_MATCHER_OP_MAX, &addr, sizeof(addr),
+                                  false));
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // Reject a negative operator.
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_IP4_SADDR, -1, &addr,
+                                  sizeof(addr), false));
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // ANY is supported for TCP flags, unlike IPv4 addresses.
+    assert_ok(bf_rule_new(&rule));
+    assert_ok(bf_rule_add_matcher(rule, BF_MATCHER_TCP_FLAGS, BF_MATCHER_ANY,
+                                  &flags, sizeof(flags), false));
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_ok(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT, NULL,
+                           &rules));
+}
+
+static void verdict_validation(void **state)
+{
+    _free_bf_chain_ struct bf_chain *chain = NULL;
+    _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
+    struct bf_rule *rule = NULL;
+
+    (void)state;
+
+    // Reject a verdict past the enum bounds.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = _BF_VERDICT_MAX;
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+    bf_list_clean(&rules);
+
+    // Reject a negative verdict.
+    assert_ok(bf_rule_new(&rule));
+    rule->verdict = -1;
+    assert_ok(bf_list_add_tail(&rules, rule));
+    assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
+                            NULL, &rules));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -883,6 +1013,9 @@ int main(void)
         cmocka_unit_test(get_set_by_name),
         cmocka_unit_test(named_reference_stability),
         cmocka_unit_test(unpack_duplicate_sets),
+        cmocka_unit_test(redirect_validation),
+        cmocka_unit_test(matcher_operator_validation),
+        cmocka_unit_test(verdict_validation),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

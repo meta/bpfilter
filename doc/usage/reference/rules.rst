@@ -6,14 +6,14 @@ Rules are defined such as:
 .. code-block:: text
 
     rule
-        $MATCHER...
+        [$MATCHER]...
         [log [$HEADERS] [every $FREQUENCY]]
         [counter]
         [mark $MARK]
         $VERDICT
 
 With:
-  - ``$MATCHER``: one or more matchers: the packet has to match all of them. A matcher will either compare the packet's data to a value (see :doc:`matchers`), or check if it's in a set (see :doc:`sets`). Both can be mixed, in any order.
+  - ``$MATCHER``: zero or more matchers: the packet has to match all of them. A matcher will either compare the packet's data to a value (see :doc:`matchers`), or check if it's in a set (see :doc:`sets`). Both can be mixed, in any order. A rule without matchers matches every packet or socket operation that reaches it.
   - ``log``: optional. Three forms are supported:
 
     - ``log $HEADERS``: log specific packet headers. ``$HEADERS`` is a comma-separated list of ``link`` (layer 2), ``internet`` (layer 3), and/or ``transport`` (layer 4). Only supported by packet-based hooks (XDP, TC, NF, cgroup_skb).
