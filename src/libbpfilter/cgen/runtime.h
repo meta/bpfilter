@@ -106,10 +106,13 @@ struct bf_rule_state
  * this pointer is stored in the runtime context and will be used to access the
  * data.
  *
- * L3 and L4 protocol identifiers are used to check which matcher should be
- * applied to a given packet. They can't be stored in the runtime context as
- * the verifier might not be able to keep track of them, leading to verification
- * failures.
+ * L3 and L4 protocol identifiers are kept in `r7` and `r8` and are used to
+ * check which matcher should be applied to a given packet. `r8` is 0 if there
+ * is no usable L4 header, and the L4 matchers check it before reading the L4
+ * header: the verifier might not be able to keep track of a protocol
+ * identifier stored in the runtime context, leading to verification failures.
+ * `l4_proto` keeps the L4 protocol even without an L4 header, so it must only
+ * be compared, never used to decide whether the L4 header can be read.
  *
  * @warning Not all the BPF verifier versions are born equal, as older ones
  * might require stack access to be 8-bytes aligned to work properly. Hence, all
@@ -149,6 +152,10 @@ struct bf_runtime
     __u8 l2_size;
     __u8 l3_size;
     __u8 l4_size;
+
+    /** L4 protocol identifier, even if the L4 header is not available. Only
+     * set for packet flavors. */
+    __u8 l4_proto;
 
     /** Offset of the layer 3 protocol header. */
     __u32 bf_aligned(8) l3_offset;
