@@ -328,7 +328,7 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
         rule->index = ridx++;
     }
 
-    _chain->limits = bf_list_default(bf_limit_free, bf_limit_pack);
+    _chain->limits = bf_list_default(bf_ratelimit_free, bf_ratelimit_pack);
     if (limits)
         _chain->limits = bf_list_move(limits);
 
@@ -338,6 +338,8 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
             *rules = bf_list_move(&_chain->rules);
         if (sets)
             *sets = bf_hashset_move(&_chain->sets);
+        if (limits)
+            *limits = bf_list_move(&_chain->limits);
         return r;
     }
 
@@ -356,7 +358,7 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
     _clean_bf_hashset_ bf_hashset sets = bf_set_hashset_default();
     _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
     _clean_bf_list_ bf_list limits =
-        bf_list_default(bf_limit_free, bf_limit_pack);
+        bf_list_default(bf_ratelimit_free, bf_ratelimit_pack);
     int r;
 
     r = bf_rpack_kv_str(node, "name", &name);
@@ -406,9 +408,10 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
     if (r)
         return bf_rpack_key_err(r, "bf_chain.limits");
     bf_rpack_array_foreach (array, array_node) {
-        _free_bf_limit_ struct bf_ratelimit *limit = NULL;
+        _free_bf_ratelimit_ struct bf_ratelimit *limit = NULL;
 
-        r = bf_list_emplace(&limits, bf_limit_new_from_pack, limit, array_node);
+        r = bf_list_emplace(&limits, bf_ratelimit_new_from_pack, limit,
+                            array_node);
         if (r) {
             return bf_err_r(
                 r, "failed to unpack bf_ratelimit into bf_chain.limits");
@@ -432,6 +435,7 @@ void bf_chain_free(struct bf_chain **chain)
         return;
 
     bf_list_clean(&(*chain)->rules);
+    bf_list_clean(&(*chain)->limits);
     bf_hashset_clean(&(*chain)->sets);
     BF_FREEP(&(*chain)->name);
     BF_FREEP(chain);
@@ -652,6 +656,18 @@ int bf_chain_new_from_copy(struct bf_chain **dest, const struct bf_chain *src)
             return r;
 
         r = bf_hashset_add(&copy->sets, (void **)&set);
+        if (r)
+            return r;
+    }
+
+    bf_list_foreach (&src->limits, limit_node) {
+        _free_bf_ratelimit_ struct bf_ratelimit *limit = NULL;
+
+        r = bf_ratelimit_new_from_copy(&limit, limit_node->data);
+        if (r)
+            return r;
+
+        r = bf_list_add_tail(&copy->limits, (void **)&limit);
         if (r)
             return r;
     }

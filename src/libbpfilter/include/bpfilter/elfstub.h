@@ -186,9 +186,9 @@ enum bf_elfstub_id
      */
     BF_ELFSTUB_PKT_5_TUPLE_LOG,
 
-    /** 
+    /**
      * Check if `limit` packets have already been seen in the last unit of time
-     * 
+     *
      * `__u8 bf_ratelimit(void *map, __u32 limit, __u32 duration, __u32 key)`
      *
      * **Parameters**

@@ -25,13 +25,13 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/hashset.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/list.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/vector.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/limit.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/logger.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/matcher.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/pack.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/rule.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/runtime.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/set.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/limit.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/verdict.h
 
     # Private sources and headers

@@ -69,8 +69,6 @@ enum bf_matcher_type
     BF_MATCHER_META_FLOW_HASH,
     /// Matches packets based on flow probability (consistent per flow).
     BF_MATCHER_META_FLOW_PROBABILITY,
-    /// Matches a number of packets per unit of time
-    BF_MATCHER_META_LIMIT,
     /// Matches IPv4 source address.
     BF_MATCHER_IP4_SADDR,
     /// Matches IPv4 source network.
@@ -121,6 +119,8 @@ enum bf_matcher_type
     /// Matches the PID (thread group ID) of the process, as seen from the
     /// initial PID namespace.
     BF_MATCHER_META_PID,
+    /// Matches a number of packets per unit of time
+    BF_MATCHER_META_LIMIT,
     _BF_MATCHER_TYPE_MAX,
 };
 

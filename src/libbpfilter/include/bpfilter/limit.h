@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0-only
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
  */
 
 #pragma once
@@ -16,7 +16,7 @@
 
 #define BF_TIME_S 1000000000
 
-#define _free_bf_limit_ __attribute__((cleanup(bf_limit_free)))
+#define _free_bf_ratelimit_ __attribute__((cleanup(bf_ratelimit_free)))
 
 /**
  * @brief Ratelimit object, used to store the configuration of a ratelimit.
@@ -38,8 +38,8 @@ struct bf_ratelimit
  * @param duration Time in nanoseconds before each reset of the ratelimit.
  * @return 0 on success, or a negative error value on failure.
  */
-int bf_limit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
-                 uint32_t duration);
+int bf_ratelimit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
+                     uint32_t duration);
 
 /**
  * @brief Allocate and initialise a new ratelimit from a raw payload value.
@@ -48,8 +48,8 @@ int bf_limit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
  * @param raw_payload Ratelimit payload. Can't be NULL.
  * @return 0 on success, or a negative error value on failure.
  */
-int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
-                          const char *raw_payload);
+int bf_ratelimit_new_from_raw(struct bf_ratelimit **ratelimit,
+                              const char *raw_payload);
 
 /**
  * @brief Allocate and initialize a new ratelimit from serialized data.
@@ -60,10 +60,16 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
  * @param node Node containing the serialized ratelimit. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure.
  */
-int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,
-                           bf_rpack_node_t node);
+int bf_ratelimit_new_from_pack(struct bf_ratelimit **ratelimit,
+                               bf_rpack_node_t node);
 
-void bf_limit_free(struct bf_ratelimit **ratelimit);
+/**
+ * Deallocate a `bf_ratelimit` object.
+ *
+ * @param ratelimit `bf_ratelimit` object to cleanup and deallocate. If `*ratelimit`
+ *        is NULL, this function has no effect. Can't be NULL.
+ */
+void bf_ratelimit_free(struct bf_ratelimit **ratelimit);
 
 /**
  * @brief Serialize a ratelimit.
@@ -72,4 +78,15 @@ void bf_limit_free(struct bf_ratelimit **ratelimit);
  * @param pack `bf_wpack_t` object to serialize the ratelimit into. Can't be NULL.
  * @return 0 on success, or a negative error value on failure.
  */
-int bf_limit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack);
+int bf_ratelimit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack);
+
+/**
+ * @brief Allocate and initialise a ratelimit as a copy of another ratelimit.
+ *
+ * @param dest Destination ratelimit. The caller owns the object on success. Can't be
+ *        NULL.
+ * @param src Ratelimit to copy. Can't be NULL.
+ * @return 0 on success, or a negative errno value on failure.
+ */
+int bf_ratelimit_new_from_copy(struct bf_ratelimit **dest,
+                               const struct bf_ratelimit *src);

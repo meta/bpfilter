@@ -10,6 +10,7 @@
 #include <bpfilter/core/list.h>
 #include <bpfilter/helper.h>
 #include <bpfilter/hook.h>
+#include <bpfilter/limit.h>
 #include <bpfilter/pack.h>
 #include <bpfilter/rule.h>
 #include <bpfilter/runtime.h>
@@ -45,23 +46,27 @@ static void new_failure_preserves_inputs(void **state)
 {
     _clean_bf_hashset_ bf_hashset sets = bf_set_hashset_default();
     _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, NULL);
+    _clean_bf_list_ bf_list limits = bf_list_default(bf_ratelimit_free, NULL);
     _free_bf_chain_ struct bf_chain *chain = NULL;
     _free_bf_set_ struct bf_set *set = NULL;
     _free_bf_rule_ struct bf_rule *rule = NULL;
+    _free_bf_ratelimit_ struct bf_ratelimit *limit = NULL;
 
     (void)state;
 
     assert_ok(
         bf_set_new_from_raw(&set, "addresses", "(ip4.saddr)", "{192.0.2.1}"));
+    assert_ok(bf_ratelimit_new_from_raw(&limit, "10/s"));
     assert_ok(bf_rule_new(&rule));
     assert_ok(bft_rule_add_named_set_matcher(rule, set, false));
     bf_rule_mark_set(rule, 1);
     assert_ok(bf_hashset_add(&sets, (void **)&set));
+    assert_ok(bf_list_push(&limits, (void **)&limit));
     assert_ok(bf_list_push(&rules, (void **)&rule));
 
     // XDP chains cannot set packet marks.
     assert_err(bf_chain_new(&chain, "test", BF_HOOK_XDP, BF_VERDICT_ACCEPT,
-                            &sets, &rules, NULL));
+                            &sets, &rules, &limits));
     assert_null(chain);
     assert_int_equal(bf_hashset_size(&sets), 1);
     assert_int_equal(bf_list_size(&rules), 1);

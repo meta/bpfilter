@@ -5,9 +5,7 @@
 
 #include <linux/bpf.h>
 
-#include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
-#include <stddef.h>
 
 #include "cgen/runtime.h"
 
@@ -18,7 +16,6 @@ __u8 bf_ratelimit(void *map, const __u32 limit, __u32 duration, __u32 key)
 
     ratelimit = bpf_map_lookup_elem(map, &key);
     if (!ratelimit) {
-        bpf_printk("failed to fetch the rule's ratelimit");
         return 1;
     }
 
@@ -27,6 +24,6 @@ __u8 bf_ratelimit(void *map, const __u32 limit, __u32 duration, __u32 key)
         ratelimit->last_time = current_time_ns;
     }
 
-    ratelimit->current++;
+    __sync_fetch_and_add(&ratelimit->current, 1);
     return (ratelimit->current > limit);
 }

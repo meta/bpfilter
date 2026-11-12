@@ -1,18 +1,23 @@
-// SPDX-License-Identifier: GPL-2.0-only
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
  */
 
 #include "bpfilter/limit.h"
 
+#include <assert.h>
+#include <errno.h>
 #include <stdint.h>
+#include <stdlib.h>
 
+#include "bpfilter/helper.h"
+#include "bpfilter/logger.h"
 #include "bpfilter/pack.h"
 
-int bf_limit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
-                 uint32_t duration)
+int bf_ratelimit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
+                     uint32_t duration)
 {
-    _free_bf_limit_ struct bf_ratelimit *_ratelimit = NULL;
+    _free_bf_ratelimit_ struct bf_ratelimit *_ratelimit = NULL;
 
     assert(ratelimit);
 
@@ -28,10 +33,10 @@ int bf_limit_new(struct bf_ratelimit **ratelimit, uint32_t limit,
     return 0;
 }
 
-int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
-                          const char *raw_payload)
+int bf_ratelimit_new_from_raw(struct bf_ratelimit **ratelimit,
+                              const char *raw_payload)
 {
-    _free_bf_limit_ struct bf_ratelimit *_ratelimit = NULL;
+    _free_bf_ratelimit_ struct bf_ratelimit *_ratelimit = NULL;
     char *endptr;
     uint32_t limit;
     uint32_t duration;
@@ -49,7 +54,7 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
     limit = (uint32_t)parsed;
 
     duration = (uint32_t)BF_TIME_S;
-    r = bf_limit_new(&_ratelimit, limit, duration);
+    r = bf_ratelimit_new(&_ratelimit, limit, duration);
     if (r)
         return r;
 
@@ -58,7 +63,7 @@ int bf_limit_new_from_raw(struct bf_ratelimit **ratelimit,
     return 0;
 }
 
-void bf_limit_free(struct bf_ratelimit **ratelimit)
+void bf_ratelimit_free(struct bf_ratelimit **ratelimit)
 {
     assert(ratelimit);
 
@@ -68,10 +73,10 @@ void bf_limit_free(struct bf_ratelimit **ratelimit)
     BF_FREEP(ratelimit);
 }
 
-int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,
-                           bf_rpack_node_t node)
+int bf_ratelimit_new_from_pack(struct bf_ratelimit **ratelimit,
+                               bf_rpack_node_t node)
 {
-    _free_bf_limit_ struct bf_ratelimit *_ratelimit = NULL;
+    _free_bf_ratelimit_ struct bf_ratelimit *_ratelimit = NULL;
     bf_rpack_node_t child;
     uint32_t limit = 0;
     uint32_t duration = 0;
@@ -101,16 +106,16 @@ int bf_limit_new_from_pack(struct bf_ratelimit **ratelimit,
         }
     }
 
-    r = bf_limit_new(&_ratelimit, limit, duration);
+    r = bf_ratelimit_new(&_ratelimit, limit, duration);
     if (r)
-        return bf_err_r(r, "failed to create bf_set from pack");
+        return bf_err_r(r, "failed to create bf_ratelimit from pack");
 
     *ratelimit = TAKE_PTR(_ratelimit);
 
     return 0;
 }
 
-int bf_limit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack)
+int bf_ratelimit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack)
 {
     assert(ratelimit);
     assert(pack);
@@ -119,4 +124,22 @@ int bf_limit_pack(const struct bf_ratelimit *ratelimit, bf_wpack_t *pack)
     bf_wpack_kv_u32(pack, "limit", ratelimit->limit);
 
     return bf_wpack_is_valid(pack) ? 0 : -EINVAL;
+}
+
+int bf_ratelimit_new_from_copy(struct bf_ratelimit **dest,
+                               const struct bf_ratelimit *src)
+{
+    _free_bf_ratelimit_ struct bf_ratelimit *copy = NULL;
+    int r;
+
+    assert(dest);
+    assert(src);
+
+    r = bf_ratelimit_new(&copy, src->limit, src->duration);
+    if (r)
+        return r;
+
+    *dest = TAKE_PTR(copy);
+
+    return 0;
 }

@@ -22,11 +22,12 @@ enum bf_map_type
     BF_MAP_TYPE_LOG,
     BF_MAP_TYPE_SET,
     BF_MAP_TYPE_CTX,
-    BF_MAP_TYPE_LIMIT,
 
     /** Single-entry array map holding per-rule mutable state. The value is a
      * flat array of `bf_rule_state` entries, indexed by rule position. */
     BF_MAP_TYPE_STATE,
+
+    BF_MAP_TYPE_LIMIT,
 
     _BF_MAP_TYPE_MAX,
 };

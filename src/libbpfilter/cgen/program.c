@@ -1114,7 +1114,8 @@ static int _bf_program_load_limit_map(struct bf_program *program)
 
     r = bf_map_new(&program->handle->rmap, _BF_LIMIT_MAP_NAME,
                    BF_MAP_TYPE_LIMIT, sizeof(uint32_t),
-                   sizeof(struct bf_ratelimit_data), 1);
+                   sizeof(struct bf_ratelimit_data),
+                   bf_list_size(&program->runtime.chain->limits));
     if (r)
         return bf_err_r(r, "failed to create the rate limit bf_map object");
 
