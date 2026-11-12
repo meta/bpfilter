@@ -67,6 +67,7 @@
 #define _BF_PRINTER_MAP_NAME "bf_pmap"
 #define _BF_LOG_MAP_NAME "bf_lmap"
 #define _BF_STATE_MAP_NAME "bf_smap"
+#define _BF_LIMIT_MAP_NAME "bf_rmap"
 
 static inline size_t _bf_round_next_power_of_2(size_t value)
 {
@@ -472,6 +473,10 @@ static int _bf_program_fixup(struct bf_program *program,
         case BF_FIXUP_TYPE_STATE_MAP_FD:
             insn_type = BF_FIXUP_INSN_IMM;
             value = program->handle->smap->fd;
+            break;
+        case BF_FIXUP_TYPE_LIMIT_MAP_FD:
+            insn_type = BF_FIXUP_INSN_IMM;
+            value = program->handle->rmap->fd;
             break;
         case BF_FIXUP_TYPE_SET_MAP_FD: {
             const struct bf_set_group *group =
@@ -1096,6 +1101,35 @@ static int _bf_program_load_state_map(struct bf_program *program)
     return 0;
 }
 
+static int _bf_program_load_limit_map(struct bf_program *program)
+{
+    uint32_t key = 0;
+    struct bf_ratelimit_data val = {.current = 0, .last_time = 0};
+    int r;
+
+    assert(program);
+
+    if (bf_list_is_empty(&program->runtime.chain->limits))
+        return 0;
+
+    r = bf_map_new(&program->handle->rmap, _BF_LIMIT_MAP_NAME,
+                   BF_MAP_TYPE_LIMIT, sizeof(uint32_t),
+                   sizeof(struct bf_ratelimit_data),
+                   bf_list_size(&program->runtime.chain->limits));
+    if (r)
+        return bf_err_r(r, "failed to create the rate limit bf_map object");
+
+    r = bf_map_set_elem(program->handle->rmap, &key, &val);
+    if (r)
+        return bf_err_r(r, "failed to set rate limit map elem");
+
+    r = _bf_program_fixup(program, BF_FIXUP_TYPE_LIMIT_MAP_FD);
+    if (r)
+        return bf_err_r(r, "failed to fixup rate limit map FD");
+
+    return 0;
+}
+
 static uint64_t _bf_dedup_hash(const void *data, void *ctx)
 {
     return bf_fnv1a(data, *(const size_t *)ctx, bf_fnv1a_init());
@@ -1279,6 +1313,10 @@ int bf_program_load(struct bf_program *prog)
     r = _bf_program_load_state_map(prog);
     if (r)
         return bf_err_r(r, "failed to load the state map");
+
+    r = _bf_program_load_limit_map(prog);
+    if (r)
+        return bf_err_r(r, "failed to load the rate limit map");
 
     if (bf_ctx_is_verbose(BF_VERBOSE_BYTECODE))
         bf_program_dump_bytecode(prog);

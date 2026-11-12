@@ -59,6 +59,7 @@ struct bf_chain
     /// Owning collection of named sets. Anonymous sets belong to matchers.
     bf_hashset sets;
     bf_list rules;
+    bf_list limits;
 
     /// Policy counters. Not serialized.
     struct bf_counter policy_counters;
@@ -82,10 +83,12 @@ struct bf_chain
  * @param sets Owning collection of named sets, initialized with
  *        bf_set_hashset_default(). Names must be unique within the chain.
  * @param rules List of rules.
+ * @param limits List of limits.
  * @return 0 on success, or negative errno value on failure.
  */
 int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
-                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules);
+                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules,
+                 bf_list *limits);
 
 /**
  * @brief Allocate and initialize a new chain from serialized data.

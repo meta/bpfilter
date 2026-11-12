@@ -15,6 +15,7 @@
 #include "bpfilter/dump.h"
 #include "bpfilter/helper.h"
 #include "bpfilter/hook.h"
+#include "bpfilter/limit.h"
 #include "bpfilter/logger.h"
 #include "bpfilter/matcher.h"
 #include "bpfilter/pack.h"
@@ -279,7 +280,8 @@ static int _bf_chain_validate_rules(struct bf_chain *chain)
 }
 
 int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
-                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules)
+                 enum bf_verdict policy, bf_hashset *sets, bf_list *rules,
+                 bf_list *limits)
 {
     _free_bf_chain_ struct bf_chain *_chain = NULL;
     size_t ridx = 0;
@@ -319,11 +321,16 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
     _chain->rules = bf_list_default(bf_rule_free, bf_rule_pack);
     if (rules)
         _chain->rules = bf_list_move(rules);
+
     bf_list_foreach (&_chain->rules, rule_node) {
         struct bf_rule *rule = bf_list_node_get_data(rule_node);
 
         rule->index = ridx++;
     }
+
+    _chain->limits = bf_list_default(bf_ratelimit_free, bf_ratelimit_pack);
+    if (limits)
+        _chain->limits = bf_list_move(limits);
 
     r = _bf_chain_validate_rules(_chain);
     if (r) {
@@ -331,6 +338,8 @@ int bf_chain_new(struct bf_chain **chain, const char *name, enum bf_hook hook,
             *rules = bf_list_move(&_chain->rules);
         if (sets)
             *sets = bf_hashset_move(&_chain->sets);
+        if (limits)
+            *limits = bf_list_move(&_chain->limits);
         return r;
     }
 
@@ -348,6 +357,8 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
     bf_rpack_node_t array, array_node;
     _clean_bf_hashset_ bf_hashset sets = bf_set_hashset_default();
     _clean_bf_list_ bf_list rules = bf_list_default(bf_rule_free, bf_rule_pack);
+    _clean_bf_list_ bf_list limits =
+        bf_list_default(bf_ratelimit_free, bf_ratelimit_pack);
     int r;
 
     r = bf_rpack_kv_str(node, "name", &name);
@@ -393,7 +404,21 @@ int bf_chain_new_from_pack(struct bf_chain **chain, bf_rpack_node_t node)
         }
     }
 
-    r = bf_chain_new(&_chain, name, hook, policy, &sets, &rules);
+    r = bf_rpack_kv_array(node, "limits", &array);
+    if (r)
+        return bf_rpack_key_err(r, "bf_chain.limits");
+    bf_rpack_array_foreach (array, array_node) {
+        _free_bf_ratelimit_ struct bf_ratelimit *limit = NULL;
+
+        r = bf_list_emplace(&limits, bf_ratelimit_new_from_pack, limit,
+                            array_node);
+        if (r) {
+            return bf_err_r(
+                r, "failed to unpack bf_ratelimit into bf_chain.limits");
+        }
+    }
+
+    r = bf_chain_new(&_chain, name, hook, policy, &sets, &rules, &limits);
     if (r)
         return bf_err_r(r, "failed to create bf_chain from pack");
 
@@ -410,6 +435,7 @@ void bf_chain_free(struct bf_chain **chain)
         return;
 
     bf_list_clean(&(*chain)->rules);
+    bf_list_clean(&(*chain)->limits);
     bf_hashset_clean(&(*chain)->sets);
     BF_FREEP(&(*chain)->name);
     BF_FREEP(chain);
@@ -436,6 +462,7 @@ int bf_chain_pack(const struct bf_chain *chain, bf_wpack_t *pack)
     }
     bf_wpack_close_array(pack);
     bf_wpack_kv_list(pack, "rules", &chain->rules);
+    bf_wpack_kv_list(pack, "limits", &chain->limits);
 
     return bf_wpack_is_valid(pack) ? 0 : -EINVAL;
 }
@@ -612,7 +639,8 @@ int bf_chain_new_from_copy(struct bf_chain **dest, const struct bf_chain *src)
     if (src->hook < 0 || src->hook >= _BF_HOOK_MAX)
         return bf_err_r(-EINVAL, "unknown source chain hook type");
 
-    r = bf_chain_new(&copy, src->name, src->hook, src->policy, NULL, NULL);
+    r = bf_chain_new(&copy, src->name, src->hook, src->policy, NULL, NULL,
+                     NULL);
     if (r)
         return r;
 
@@ -628,6 +656,18 @@ int bf_chain_new_from_copy(struct bf_chain **dest, const struct bf_chain *src)
             return r;
 
         r = bf_hashset_add(&copy->sets, (void **)&set);
+        if (r)
+            return r;
+    }
+
+    bf_list_foreach (&src->limits, limit_node) {
+        _free_bf_ratelimit_ struct bf_ratelimit *limit = NULL;
+
+        r = bf_ratelimit_new_from_copy(&limit, limit_node->data);
+        if (r)
+            return r;
+
+        r = bf_list_add_tail(&copy->limits, (void **)&limit);
         if (r)
             return r;
     }

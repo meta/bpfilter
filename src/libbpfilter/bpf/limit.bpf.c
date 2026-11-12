@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
+ */
+
+#include <linux/bpf.h>
+
+#include <bpf/bpf_helpers.h>
+
+#include "cgen/runtime.h"
+
+__u8 bf_ratelimit(void *map, const __u32 limit, __u32 duration, __u32 key)
+{
+    struct bf_ratelimit_data *ratelimit;
+    __u64 current_time_ns = bpf_ktime_get_ns();
+
+    ratelimit = bpf_map_lookup_elem(map, &key);
+    if (!ratelimit) {
+        return 1;
+    }
+
+    if (current_time_ns > ratelimit->last_time + duration) {
+        ratelimit->current = 0;
+        ratelimit->last_time = current_time_ns;
+    }
+
+    __sync_fetch_and_add(&ratelimit->current, 1);
+    return (ratelimit->current > limit);
+}

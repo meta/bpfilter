@@ -399,6 +399,7 @@ int bf_packet_gen_inline_matcher(struct bf_program *program,
     case BF_MATCHER_META_L4_PROTO:
     case BF_MATCHER_META_PROBABILITY:
     case BF_MATCHER_META_FLOW_PROBABILITY:
+    case BF_MATCHER_META_LIMIT:
         return bf_matcher_generate_meta(program, matcher);
     case BF_MATCHER_META_MARK:
     case BF_MATCHER_META_FLOW_HASH:

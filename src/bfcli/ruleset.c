@@ -8,6 +8,7 @@
 
 #include <bpfilter/bpfilter.h>
 
+#include "bpfilter/core/list.h"
 #include "helper.h"
 #include "opts.h"
 #include "print.h"
@@ -18,6 +19,7 @@ void bfc_ruleset_clean(struct bfc_ruleset *ruleset)
 
     bf_list_clean(&ruleset->chains);
     bf_list_clean(&ruleset->hookopts);
+    bf_list_clean(&ruleset->limits);
     bf_hashset_clean(&ruleset->sets);
 }
 

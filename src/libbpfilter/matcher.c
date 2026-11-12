@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1002,6 +1003,10 @@ static struct bf_matcher_meta _bf_matcher_metas[_BF_MATCHER_TYPE_MAX] = {
                                    _bf_parse_pid, _bf_print_pid),
                 },
         },
+    [BF_MATCHER_META_LIMIT] =
+        {
+            .layer = BF_MATCHER_NO_LAYER,
+        },
     [BF_MATCHER_IP4_SADDR] =
         {
             .layer = BF_MATCHER_LAYER_3,
@@ -1768,6 +1773,7 @@ static const char *_bf_matcher_type_strs[] = {
     [BF_MATCHER_META_MARK] = "meta.mark",
     [BF_MATCHER_META_FLOW_HASH] = "meta.flow_hash",
     [BF_MATCHER_META_FLOW_PROBABILITY] = "meta.flow_probability",
+    [BF_MATCHER_META_LIMIT] = "meta.limit",
     [BF_MATCHER_IP4_SADDR] = "ip4.saddr",
     [BF_MATCHER_IP4_SNET] = "ip4.snet",
     [BF_MATCHER_IP4_DADDR] = "ip4.daddr",

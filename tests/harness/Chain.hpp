@@ -86,7 +86,7 @@ public:
         struct bf_chain *chain;
 
         int r = bf_chain_new(&chain, _name.c_str(), _hook, _policy, nullptr,
-                             nullptr);
+                             nullptr, nullptr);
         if (r != 0)
             throw std::runtime_error("failed to create bf_chain");
 

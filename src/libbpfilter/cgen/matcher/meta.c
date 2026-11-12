@@ -10,12 +10,15 @@
 #include <linux/if_ether.h>
 #include <linux/in.h> // NOLINT
 
+#include <assert.h>
 #include <endian.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include <bpfilter/core/list.h>
 #include <bpfilter/elfstub.h>
+#include <bpfilter/limit.h>
 #include <bpfilter/logger.h>
 #include <bpfilter/matcher.h>
 
@@ -119,6 +122,44 @@ _bf_matcher_generate_meta_flow_probability(struct bf_program *program,
     return 0;
 }
 
+static int _bf_matcher_generate_meta_limit(struct bf_program *program,
+                                           const struct bf_matcher *matcher)
+{
+    assert(program);
+    assert(matcher);
+
+    uint32_t limit = 0;
+    uint32_t duration = 0;
+    uint32_t key = *(uint32_t *)bf_matcher_payload(matcher);
+    struct bf_ratelimit *node =
+        bf_list_get_at(&program->runtime.chain->limits, key);
+
+    if (!node) {
+        return bf_err_r(-EINVAL,
+                        "chain '%s' references non-existent rate limit",
+                        program->runtime.chain->name);
+    }
+
+    limit = node->limit;
+    duration = node->duration;
+
+    EMIT_LOAD_LIMIT_FD_FIXUP(program, BPF_REG_1);
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_2, limit));
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_3, duration));
+    EMIT(program, BPF_MOV32_IMM(BPF_REG_4, key));
+    EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_LIMIT);
+
+    if (bf_matcher_get_negate(matcher)) {
+        EMIT_FIXUP_JMP_NEXT_RULE(program,
+                                 BPF_JMP32_IMM(BPF_JEQ, BPF_REG_0, 0, 0));
+    } else {
+        EMIT_FIXUP_JMP_NEXT_RULE(program,
+                                 BPF_JMP32_IMM(BPF_JNE, BPF_REG_0, 0, 0));
+    }
+
+    return 0;
+}
+
 int bf_matcher_generate_meta(struct bf_program *program,
                              const struct bf_matcher *matcher)
 {
@@ -136,6 +177,8 @@ int bf_matcher_generate_meta(struct bf_program *program,
         return _bf_matcher_generate_meta_probability(program, matcher);
     case BF_MATCHER_META_FLOW_PROBABILITY:
         return _bf_matcher_generate_meta_flow_probability(program, matcher);
+    case BF_MATCHER_META_LIMIT:
+        return _bf_matcher_generate_meta_limit(program, matcher);
     case BF_MATCHER_META_PID:
     case BF_MATCHER_META_SPORT:
     case BF_MATCHER_META_DPORT:

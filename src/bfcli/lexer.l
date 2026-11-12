@@ -44,6 +44,7 @@
 %s STATE_MATCHER_ICMP_TYPE
 %s STATE_MATCHER_ICMP_CODE
 %s STATE_MATCHER_TCP_FLAGS
+%s STATE_MATCHER_META_LIMIT
 
 int             (-|(0x))?[0-9a-zA-Z]+
 float           [0-9]+(\.[0-9]+)?
@@ -198,6 +199,20 @@ meta\.pid           { BEGIN(STATE_MATCHER_META_PID); yylval.sval = strdup(yytext
 <STATE_MATCHER_META_PID>{
     (eq) { yylval.sval = strdup(yytext); return MATCHER_OP; }
     {int} {
+        BEGIN(INITIAL);
+        yylval.sval = strdup(yytext);
+        return RAW_PAYLOAD;
+    }
+}
+
+meta\.limit  {
+    BEGIN(STATE_MATCHER_META_LIMIT);
+    yylval.sval = strdup(yytext);
+    return MATCHER_META_LIMIT;
+}
+<STATE_MATCHER_META_LIMIT>{
+    (eq) { yylval.sval = strdup(yytext); return MATCHER_OP; }
+    {int}\/[a-zA-Z] {
         BEGIN(INITIAL);
         yylval.sval = strdup(yytext);
         return RAW_PAYLOAD;

@@ -25,6 +25,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/hashset.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/list.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/core/vector.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/limit.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/logger.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/matcher.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bpfilter/pack.h
@@ -56,6 +57,7 @@ set(libbpfilter_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/pack.c
     ${CMAKE_CURRENT_SOURCE_DIR}/rule.c
     ${CMAKE_CURRENT_SOURCE_DIR}/set.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/limit.c
     ${CMAKE_CURRENT_SOURCE_DIR}/verdict.c
     ${CMAKE_CURRENT_SOURCE_DIR}/version.c
 
@@ -118,6 +120,7 @@ bf_target_add_elfstubs(libbpfilter
         "flow_hash"
         "sock_addr_log"
         "pkt_5_tuple_log"
+        "limit"
 )
 
 target_compile_definitions(libbpfilter

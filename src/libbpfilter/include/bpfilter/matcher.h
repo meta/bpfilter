@@ -119,6 +119,8 @@ enum bf_matcher_type
     /// Matches the PID (thread group ID) of the process, as seen from the
     /// initial PID namespace.
     BF_MATCHER_META_PID,
+    /// Matches a number of packets per unit of time
+    BF_MATCHER_META_LIMIT,
     _BF_MATCHER_TYPE_MAX,
 };
 
