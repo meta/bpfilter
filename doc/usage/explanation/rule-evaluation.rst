@@ -28,6 +28,7 @@ What happens next depends on the verdict of the rule that matched:
 
 - ``ACCEPT`` and ``DROP`` stop the processing: the packet is accepted or dropped, and the subsequent rules won't see it.
 - ``REDIRECT`` stops the processing too, and sends the packet to another interface. Not all the hooks support it.
+- ``REJECT`` stops the processing, drops the packet, and sends an error back to its sender. Only XDP supports it.
 - ``NEXT`` stops the processing, and lets the next BPF program attached to the hook decide. Only TC hooks make a difference between ``NEXT`` and ``ACCEPT``.
 - ``CONTINUE`` doesn't stop anything: the packet goes on to the next rule.
 

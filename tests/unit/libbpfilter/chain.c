@@ -504,10 +504,8 @@ static void validate_rules_uses_current_content(void **state)
 
     const enum bf_hook invalid_hooks[] = {(enum bf_hook) - 1, _BF_HOOK_MAX};
     const enum bf_verdict invalid_policies[] = {
-        (enum bf_verdict) - 1,
-        _BF_VERDICT_MAX,
-        BF_VERDICT_CONTINUE,
-        BF_VERDICT_REDIRECT,
+        (enum bf_verdict) - 1, _BF_VERDICT_MAX,   BF_VERDICT_CONTINUE,
+        BF_VERDICT_REDIRECT,   BF_VERDICT_REJECT,
     };
 
     (void)state;
@@ -571,6 +569,10 @@ static void empty_set_only_disables_in_rules(void **state)
         (enum bf_redirect_dir) - 1,
         _BF_REDIRECT_DIR_MAX,
     };
+    const enum bf_reject_type invalid_reject_types[] = {
+        (enum bf_reject_type) - 1,
+        _BF_REJECT_TYPE_MAX,
+    };
 
     (void)state;
 
@@ -608,6 +610,12 @@ static void empty_set_only_disables_in_rules(void **state)
             assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
         }
         checked_rules[i]->redirect_dir = BF_REDIRECT_INGRESS;
+
+        for (size_t j = 0; j < ARRAY_SIZE(invalid_reject_types); ++j) {
+            checked_rules[i]->reject_type = invalid_reject_types[j];
+            assert_int_equal(bf_chain_validate_rules(chain), -EINVAL);
+        }
+        checked_rules[i]->reject_type = BF_REJECT_PORT_UNREACH;
     }
     assert_ok(bf_chain_validate_rules(chain));
 }
@@ -743,6 +751,8 @@ static void policy_validation(void **state)
                             BF_VERDICT_CONTINUE, NULL, NULL));
     assert_err(bf_chain_new(&chain, "bad", BF_HOOK_TC_EGRESS,
                             BF_VERDICT_REDIRECT, NULL, NULL));
+    assert_err(bf_chain_new(&chain, "bad", BF_HOOK_XDP, BF_VERDICT_REJECT, NULL,
+                            NULL));
 }
 
 static void set_component_unsupported_hook(void **state)

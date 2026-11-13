@@ -12,6 +12,7 @@
 "DROP"
 "REDIRECT"
 "CONTINUE"
+"REJECT"
 
 # Redirect directions
 "in"

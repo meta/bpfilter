@@ -90,6 +90,9 @@ struct bf_rule
     uint32_t redirect_ifindex;
     /** Direction for REDIRECT verdict. */
     enum bf_redirect_dir redirect_dir;
+
+    /** Reply sent by the REJECT verdict. Ignored for the other verdicts. */
+    enum bf_reject_type reject_type;
 };
 
 static_assert(
