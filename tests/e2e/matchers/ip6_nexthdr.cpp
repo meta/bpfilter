@@ -15,7 +15,8 @@ extern "C" {
 
 /**
  * Verify ip6.nexthdr eq matches packets whose IPv6 next header field equals
- * the configured value and rejects packets with a different next header.
+ * the configured value and rejects packets with a different next header. The
+ * next header still matches if the L4 header is truncated.
  */
 static void ip6_nexthdr_eq(void **state)
 {
@@ -49,7 +50,13 @@ static void ip6_nexthdr_eq(void **state)
             bft::UDP {.sport = 12345, .dport = 53},
         test->verdictAccept());
 
-    bft_assert_counter_eq("test_ip6_nexthdr", 0, 2, -1);
+    // Truncated TCP header -> nexthdr=6 -> DROP
+    auto pkt = bft::Ethernet() / bft::IPv6 {} / bft::TCP {};
+    pkt.len -= 1;
+    bft_assert_prog_run("test_ip6_nexthdr", test->hook(), pkt,
+                        test->verdictDrop());
+
+    bft_assert_counter_eq("test_ip6_nexthdr", 0, 3, -1);
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_ip6_nexthdr", test->hook(), BF_VERDICT_ACCEPT)

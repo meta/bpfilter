@@ -326,6 +326,10 @@ int bf_stub_parse_l4_hdr(struct bf_codegen *program)
 
     assert(program);
 
+    // r8 is set to 0 below if the L4 header can't be parsed
+    EMIT(program,
+         BPF_STX_MEM(BPF_B, BPF_REG_10, BPF_REG_8, BF_PROG_CTX_OFF(l4_proto)));
+
     /* Parse the L4 protocol and handle unuspported protocol, similarly to
      * bf_stub_parse_l3_hdr() above. */
     {

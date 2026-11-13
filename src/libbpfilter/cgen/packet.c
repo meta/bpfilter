@@ -229,6 +229,16 @@ _bf_matcher_pkt_generate_tcp_flags(struct bf_codegen *program,
     }
 }
 
+static int _bf_matcher_pkt_generate_l4_proto(struct bf_program *program,
+                                             const struct bf_matcher *matcher)
+{
+    EMIT(program,
+         BPF_LDX_MEM(BPF_B, BPF_REG_1, BPF_REG_10, BF_PROG_CTX_OFF(l4_proto)));
+
+    return bf_cmp_value(program, matcher, bf_matcher_payload(matcher), 1,
+                        BPF_REG_1);
+}
+
 static int
 _bf_matcher_pkt_generate_ip6_nexthdr(struct bf_codegen *program,
                                      const struct bf_matcher *matcher)
@@ -265,10 +275,7 @@ _bf_matcher_pkt_generate_ip6_nexthdr(struct bf_codegen *program,
                                  BPF_REG_1, 0, 0));
         break;
     default:
-        /* check l4 protocols using `BPF_REG_8` */
-        EMIT_FIXUP_JMP_NEXT_RULE(program,
-                                 BPF_JMP_IMM(jmp_op, BPF_REG_8, ehdr, 0));
-        break;
+        return _bf_matcher_pkt_generate_l4_proto(program, matcher);
     }
 
     return 0;
@@ -396,10 +403,11 @@ int bf_packet_gen_inline_matcher(struct bf_codegen *program,
     switch (bf_matcher_get_type(matcher)) {
     case BF_MATCHER_META_IFACE:
     case BF_MATCHER_META_L3_PROTO:
-    case BF_MATCHER_META_L4_PROTO:
     case BF_MATCHER_META_PROBABILITY:
     case BF_MATCHER_META_FLOW_PROBABILITY:
         return bf_matcher_generate_meta(program, matcher);
+    case BF_MATCHER_META_L4_PROTO:
+        return _bf_matcher_pkt_generate_l4_proto(program, matcher);
     case BF_MATCHER_META_MARK:
     case BF_MATCHER_META_FLOW_HASH:
     case BF_MATCHER_META_PID:
