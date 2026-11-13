@@ -119,6 +119,7 @@ bf_target_add_elfstubs(libbpfilter
         "sock_addr_log"
         "pkt_5_tuple_log"
         "parse_l2"
+        "xdp_reject_icmp"
 )
 
 target_compile_definitions(libbpfilter

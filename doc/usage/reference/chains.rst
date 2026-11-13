@@ -17,7 +17,7 @@ With:
     - ``DROP``: discard the packet.
     - ``NEXT``: pass the packet to the next BPF program. For TC hooks, this maps to ``TCX_NEXT``, deferring the decision to the next program in the TCX link. For other hooks, ``NEXT`` behaves identically to ``ACCEPT`` since these hooks do not distinguish between "accept" and "pass to next program."
 
-    Note: ``CONTINUE`` and ``REDIRECT`` are not valid chain policies.
+    Note: ``CONTINUE``, ``REDIRECT``, and ``REJECT`` are not valid chain policies.
 
 
 A chain contains its named sets, followed by its rules. See :doc:`ruleset`, :doc:`rules`, and :doc:`sets`.

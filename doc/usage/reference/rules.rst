@@ -30,17 +30,18 @@ With:
 
   - ``counter``: optional literal. If set, the filter will count the number of events matched by the rule. For packet-based hooks, this includes both the number of packets and the total bytes. For ``BF_HOOK_CGROUP_SOCK_ADDR_*`` hooks, this counts the number of socket operations (``connect()`` or ``sendmsg()`` calls).
   - ``mark``: optional, ``$MARK`` must be a valid decimal or hexadecimal 32-bits value. If set, write the packet's marker value. This marker can be used later on in a rule (see ``meta.mark``) or with a TC filter. Only supported by TC (``BF_HOOK_TC_*``) and cgroup_skb (``BF_HOOK_CGROUP_SKB_*``) hooks.
-  - ``$VERDICT``: action taken by the rule if the packet is matched against **all** the criteria: either ``ACCEPT``, ``DROP``, ``CONTINUE``, ``NEXT``, or ``REDIRECT``.
+  - ``$VERDICT``: action taken by the rule if the packet is matched against **all** the criteria: either ``ACCEPT``, ``DROP``, ``CONTINUE``, ``NEXT``, ``REDIRECT``, or ``REJECT``.
 
     - ``ACCEPT``: forward the packet to the kernel.
     - ``DROP``: discard the packet.
     - ``CONTINUE``: continue processing subsequent rules (non-terminal).
     - ``NEXT``: stop rule processing and pass the packet to the next BPF program. For TC hooks, this returns ``TCX_NEXT``. For other hooks, this is equivalent to ``ACCEPT``.
     - ``REDIRECT $IFACE $DIR``: redirect the packet to interface ``$IFACE`` in direction ``$DIR``. ``$IFACE`` can be an interface name (e.g., "eth0") or an interface index (e.g., "2"). ``$DIR`` is either ``in`` for ingress or ``out`` for egress.
+    - ``REJECT``: discard the packet and send an ICMP destination unreachable error (port unreachable) back to its sender.
 
 ``log``, ``counter``, and ``mark`` can be specified in any order, each at most once.
 
-In a chain, as soon as a rule matches a packet, its actions are executed and its verdict is applied. If the verdict is ``ACCEPT``, ``DROP``, ``NEXT``, or ``REDIRECT``, the subsequent rules are not processed. Hence, the rules' order matters. If the packet went through all the rules and none of them stopped its processing, the chain's policy is applied.
+In a chain, as soon as a rule matches a packet, its actions are executed and its verdict is applied. If the verdict is ``ACCEPT``, ``DROP``, ``NEXT``, ``REDIRECT``, or ``REJECT``, the subsequent rules are not processed. Hence, the rules' order matters. If the packet went through all the rules and none of them stopped its processing, the chain's policy is applied.
 
 Note ``CONTINUE`` means a packet can be counted more than once if multiple rules specify ``CONTINUE`` and ``counter``.
 
@@ -51,6 +52,10 @@ Note ``CONTINUE`` means a packet can be counted more than once if multiple rules
       - ``BF_HOOK_TC_INGRESS``, ``BF_HOOK_TC_EGRESS``: both ``in`` and ``out`` directions are supported.
 
     ``REDIRECT`` is **not** supported by Netfilter (``BF_HOOK_NF_*``), cgroup_skb (``BF_HOOK_CGROUP_SKB_*``), or cgroup_sock_addr (``BF_HOOK_CGROUP_SOCK_ADDR_*``) hooks.
+
+.. note::
+
+    ``REJECT`` is only supported by ``BF_HOOK_XDP``. The reply is built in place of the original packet, and sent back through the interface it was received on: its addresses are the original addresses swapped, and it quotes the original IP header and the 8 bytes following it. IPv4 packets are answered with an ICMP type 3 code 3 error. Packets ``icmp_send()`` wouldn't answer are dropped without a reply: link-layer broadcast and multicast frames, packets from or to a non-unicast address, fragments other than the first one, ICMP errors, and malformed packets, as well as the packets with less than 8 bytes after their IP header, or which are not IPv4. The transport layer checksum of the original packet is not verified, and the frame's destination MAC address is not compared to the interface's: on a promiscuous interface, unicast frames addressed to another host are answered too. Replies are not rate-limited.
 
 .. note::
 
