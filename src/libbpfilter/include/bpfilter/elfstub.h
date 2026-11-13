@@ -205,6 +205,25 @@ enum bf_elfstub_id
      */
     BF_ELFSTUB_XDP_REJECT_ICMP,
 
+    /**
+     * Replace an IPv6 packet with an ICMPv6 error sent back to its source.
+     *
+     * `int bf_xdp_reject_icmp6(struct bf_runtime *ctx, __u8 type, __u8 code)`
+     *
+     * XDP only. Link-layer broadcast and multicast frames, packets from or to
+     * a non-unicast address, fragments other than the first, ICMPv6 errors,
+     * and malformed packets get no reply.
+     *
+     * **Parameters**
+     * - `ctx`: address of the `bf_runtime` context of the program.
+     * - `type`: ICMPv6 type of the reply.
+     * - `code`: ICMPv6 code of the reply.
+     *
+     * **Return** `XDP_TX` if the packet has been replaced by the reply, or
+     * `XDP_DROP` if it should be dropped without a reply.
+     */
+    BF_ELFSTUB_XDP_REJECT_ICMP6,
+
     _BF_ELFSTUB_MAX,
 };
 

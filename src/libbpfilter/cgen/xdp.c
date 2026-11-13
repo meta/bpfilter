@@ -8,6 +8,7 @@
 #include <linux/bpf.h>
 #include <linux/bpf_common.h>
 #include <linux/icmp.h>
+#include <linux/icmpv6.h>
 #include <linux/if_ether.h>
 
 #include <endian.h>
@@ -115,14 +116,17 @@ static int _bf_xdp_gen_inline_redirect(struct bf_codegen *program,
 }
 
 /**
- * ICMP type and code of the reply sent for each reject type.
+ * ICMP and ICMPv6 types and codes of the replies sent for each reject type.
  */
 static const struct
 {
     uint8_t icmp_type;
     uint8_t icmp_code;
+    uint8_t icmp6_type;
+    uint8_t icmp6_code;
 } _bf_xdp_reject_replies[] = {
-    [BF_REJECT_PORT_UNREACH] = {ICMP_DEST_UNREACH, ICMP_PORT_UNREACH},
+    [BF_REJECT_PORT_UNREACH] = {ICMP_DEST_UNREACH, ICMP_PORT_UNREACH,
+                                ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH},
 };
 static_assert_enum_mapping(_bf_xdp_reject_replies, _BF_REJECT_TYPE_MAX);
 
@@ -164,7 +168,8 @@ static int _bf_xdp_gen_inline_reject_reply(struct bf_codegen *program,
  *
  * The reply is built in place of the original packet by an ELF stub, then
  * sent back through the ingress interface with `XDP_TX`. Packets the stub
- * can't reply to are dropped, as well as the non-IPv4 packets.
+ * can't reply to are dropped, as well as the packets which are neither IPv4
+ * nor IPv6.
  *
  * @param program Program to generate bytecode for. Can't be NULL.
  * @param type Reply to send.
@@ -184,6 +189,13 @@ static int _bf_xdp_gen_inline_reject(struct bf_codegen *program,
                                         BF_ELFSTUB_XDP_REJECT_ICMP,
                                         _bf_xdp_reject_replies[type].icmp_type,
                                         _bf_xdp_reject_replies[type].icmp_code);
+    if (r)
+        return r;
+
+    r = _bf_xdp_gen_inline_reject_reply(
+        program, ETH_P_IPV6, BF_ELFSTUB_XDP_REJECT_ICMP6,
+        _bf_xdp_reject_replies[type].icmp6_type,
+        _bf_xdp_reject_replies[type].icmp6_code);
     if (r)
         return r;
 
