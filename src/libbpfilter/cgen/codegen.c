@@ -750,6 +750,15 @@ static int _bf_codegen_generate_rule(struct bf_codegen *program,
         if (r)
             return r;
         break;
+    case BF_VERDICT_REJECT:
+        if (!program->runtime.ops->gen_inline_reject) {
+            return bf_err_r(-ENOTSUP, "reject is not supported by %s hook",
+                            bf_hook_to_str(program->runtime.chain->hook));
+        }
+        r = program->runtime.ops->gen_inline_reject(program, rule->reject_type);
+        if (r)
+            return r;
+        break;
     case BF_VERDICT_CONTINUE:
         // Fall through to next rule or default chain policy.
         break;
