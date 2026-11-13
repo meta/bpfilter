@@ -120,6 +120,7 @@ bf_target_add_elfstubs(libbpfilter
         "pkt_5_tuple_log"
         "parse_l2"
         "xdp_reject_icmp"
+        "xdp_reject_icmp6"
 )
 
 target_compile_definitions(libbpfilter

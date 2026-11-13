@@ -48,10 +48,15 @@ mkdir ${HOST_BPFFS}
 mount -t bpf bpf ${HOST_BPFFS}
 ${HOST_BFCLI} chain set --from-str "chain napi BF_HOOK_XDP{ifindex=${HOST_IFINDEX}} ACCEPT"
 
+ip -6 addr add fd00::1/64 dev ${VETH_HOST} nodad
+${FROM_NS} ip -6 addr add fd00::2/64 dev ${VETH_NS} nodad
+
 ${FROM_NS} ${BFCLI} chain set --from-str "chain reject BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT
     rule ip4.proto icmp counter REJECT
     rule ip4.proto udp counter REJECT
-    rule ip4.proto tcp counter REJECT"
+    rule ip4.proto tcp counter REJECT
+    rule icmpv6.type eq echo-request counter REJECT
+    rule meta.l3_proto ipv6 meta.l4_proto udp counter REJECT"
 
 # The original packets never reach the namespace: the replies come from REJECT
 ping -c 1 -W 1 ${NS_IP_ADDR} | grep "Destination Port Unreachable"
@@ -82,6 +87,24 @@ else:
     raise SystemExit('connection not refused')
 "
 test "$(get_counter reject 2)" = "1"
+
+ping -6 -c 1 -W 1 fd00::2 | grep "Destination unreachable: Port unreachable"
+test "$(get_counter reject 3)" = "1"
+
+python3 -c "
+import socket
+s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+s.settimeout(1)
+s.connect(('fd00::2', 9990))
+s.send(b'x' * 64)
+try:
+    s.recv(1)
+except ConnectionRefusedError:
+    pass
+else:
+    raise SystemExit('no ICMPv6 error received')
+"
+test "$(get_counter reject 4)" = "1"
 
 ${FROM_NS} ${BFCLI} ruleset flush
 ${HOST_BFCLI} ruleset flush
