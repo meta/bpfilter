@@ -85,6 +85,11 @@ static void copy_failure_preserves_destination(void **state)
     assert_err(bf_rule_new_from_copy(&destination, source));
     assert_ptr_equal(destination, original);
     assert_int_equal(bf_list_size(&destination->matchers), 0);
+
+    source->verdict = BF_VERDICT_REJECT;
+    source->reject_type = _BF_REJECT_TYPE_MAX;
+    assert_err(bf_rule_new_from_copy(&destination, source));
+    assert_ptr_equal(destination, original);
 }
 
 static void pack_and_unpack(void **state)
@@ -113,6 +118,33 @@ static void pack_and_unpack(void **state)
     assert_ok(bf_rule_new_from_pack(&destination, node, NULL));
 
     assert_true(bft_rule_equal(source, destination));
+}
+
+static void unpack_invalid_reject_type(void **state)
+{
+    _free_bf_rule_ struct bf_rule *source = NULL;
+    _free_bf_rule_ struct bf_rule *destination = NULL;
+    _free_bf_wpack_ bf_wpack_t *wpack = NULL;
+    _free_bf_rpack_ bf_rpack_t *rpack = NULL;
+    bf_rpack_node_t node;
+    const void *data;
+    size_t data_len;
+
+    (void)state;
+
+    assert_non_null(source = bft_rule_dummy(0));
+    source->verdict = BF_VERDICT_REJECT;
+    source->reject_type = _BF_REJECT_TYPE_MAX;
+
+    assert_ok(bf_wpack_new(&wpack));
+    bf_wpack_open_object(wpack, "rule");
+    assert_ok(bf_rule_pack(source, wpack));
+    bf_wpack_close_object(wpack);
+    assert_ok(bf_wpack_get_data(wpack, &data, &data_len));
+
+    assert_ok(bf_rpack_new(&rpack, data, data_len));
+    assert_ok(bf_rpack_kv_obj(bf_rpack_root(rpack), "rule", &node));
+    assert_err(bf_rule_new_from_pack(&destination, node, NULL));
 }
 
 static void unpack_error(void **state)
@@ -146,6 +178,10 @@ static void dump(void **state)
 
     // Dump a list without matchers
     bf_list_clean(&rule->matchers);
+    bf_rule_dump(rule, EMPTY_PREFIX);
+
+    // Dump a REJECT rule
+    rule->verdict = BF_VERDICT_REJECT;
     bf_rule_dump(rule, EMPTY_PREFIX);
 }
 
@@ -183,6 +219,7 @@ int main(void)
         cmocka_unit_test(copy_configuration_and_ownership),
         cmocka_unit_test(copy_failure_preserves_destination),
         cmocka_unit_test(pack_and_unpack),
+        cmocka_unit_test(unpack_invalid_reject_type),
         cmocka_unit_test(unpack_error),
         cmocka_unit_test(dump),
         cmocka_unit_test(add_matcher),

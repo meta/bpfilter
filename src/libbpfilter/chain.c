@@ -299,6 +299,9 @@ int bf_chain_validate_rules(struct bf_chain *chain)
                             "invalid rule verdict or redirect direction");
         }
 
+        if ((unsigned int)rule->reject_type >= _BF_REJECT_TYPE_MAX)
+            return bf_err_r(-EINVAL, "invalid rule reject type");
+
         rule->index = index++;
         r = _bf_chain_check_rule(chain, rule);
         if (r)

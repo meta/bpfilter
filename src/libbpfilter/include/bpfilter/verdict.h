@@ -37,6 +37,37 @@ const char *bf_redirect_dir_to_str(enum bf_redirect_dir dir);
 int bf_redirect_dir_from_str(const char *str, enum bf_redirect_dir *dir);
 
 /**
+ * Reply sent by the REJECT verdict.
+ *
+ * Each type is answered with the message matching the packet's network
+ * protocol: ICMP for IPv4, ICMPv6 for IPv6.
+ */
+enum bf_reject_type
+{
+    /** Destination unreachable, port unreachable: ICMP type 3 code 3, or
+     * ICMPv6 type 1 code 4. Default. */
+    BF_REJECT_PORT_UNREACH,
+    _BF_REJECT_TYPE_MAX,
+};
+
+/**
+ * @brief Convert a reject type value into a string.
+ *
+ * @param type The reject type to convert, must be valid.
+ * @return String representation of the reject type.
+ */
+const char *bf_reject_type_to_str(enum bf_reject_type type);
+
+/**
+ * @brief Convert a string into a reject type value.
+ *
+ * @param str String to convert to a reject type. Can't be NULL.
+ * @param type Pointer to store the reject type value. Can't be NULL.
+ * @return 0 on success, or negative errno value on error.
+ */
+int bf_reject_type_from_str(const char *str, enum bf_reject_type *type);
+
+/**
  * Verdict to apply for a rule or chain.
  *
  * Only some verdicts are valid as chain policies (see
@@ -59,6 +90,9 @@ enum bf_verdict
      * return code as ACCEPT since these hooks do not distinguish between
      * "accept" and "pass to next program." */
     BF_VERDICT_NEXT,
+    /** Drop the packet and send a reply to its sender (see
+     * `bf_reject_type`). Terminal. */
+    BF_VERDICT_REJECT,
     _BF_VERDICT_MAX,
 };
 
@@ -84,7 +118,8 @@ int bf_verdict_from_str(const char *str, enum bf_verdict *verdict);
  *
  * Only ACCEPT, DROP, and NEXT are valid chain policies. CONTINUE is
  * non-terminal and cannot be a default action. REDIRECT requires per-rule
- * parameters (interface, direction) so it cannot be a policy either.
+ * parameters (interface, direction) so it cannot be a policy either. REJECT
+ * is a rule-only verdict, as with iptables.
  *
  * @param verdict Verdict to check.
  * @return true if the verdict is valid as a chain policy, false otherwise.

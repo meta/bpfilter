@@ -128,6 +128,13 @@ int bf_rule_new_from_pack(struct bf_rule **rule, bf_rpack_node_t node,
             return bf_rpack_key_err(r, "bf_rule.redirect_dir");
     }
 
+    if (bf_rpack_kv_contains(node, "reject_type")) {
+        r = bf_rpack_kv_enum(node, "reject_type", &_rule->reject_type, 0,
+                             _BF_REJECT_TYPE_MAX);
+        if (r)
+            return bf_rpack_key_err(r, "bf_rule.reject_type");
+    }
+
     r = bf_rpack_kv_array(node, "matchers", &m_nodes);
     if (r)
         return bf_rpack_key_err(r, "bf_rule.matchers");
@@ -161,6 +168,9 @@ int bf_rule_new_from_copy(struct bf_rule **dest, const struct bf_rule *src)
                         "invalid source rule verdict or redirect direction");
     }
 
+    if (src->reject_type < 0 || src->reject_type >= _BF_REJECT_TYPE_MAX)
+        return bf_err_r(-EINVAL, "invalid source rule reject type");
+
     r = bf_rule_new(&copy);
     if (r)
         return r;
@@ -173,6 +183,7 @@ int bf_rule_new_from_copy(struct bf_rule **dest, const struct bf_rule *src)
     copy->verdict = src->verdict;
     copy->redirect_ifindex = src->redirect_ifindex;
     copy->redirect_dir = src->redirect_dir;
+    copy->reject_type = src->reject_type;
 
     bf_list_foreach (&src->matchers, matcher_node) {
         _free_bf_matcher_ struct bf_matcher *matcher = NULL;
@@ -214,6 +225,7 @@ int bf_rule_pack(const struct bf_rule *rule, bf_wpack_t *pack)
     bf_wpack_kv_int(pack, "verdict", rule->verdict);
     bf_wpack_kv_u32(pack, "redirect_ifindex", rule->redirect_ifindex);
     bf_wpack_kv_int(pack, "redirect_dir", rule->redirect_dir);
+    bf_wpack_kv_int(pack, "reject_type", rule->reject_type);
 
     bf_wpack_kv_list(pack, "matchers", &rule->matchers);
 
@@ -260,11 +272,17 @@ void bf_rule_dump(const struct bf_rule *rule, prefix_t *prefix)
     DUMP(prefix, "verdict: %s", bf_verdict_to_str(rule->verdict));
     if (bf_rule_has_redirect(rule)) {
         DUMP(prefix, "redirect_ifindex: %u", rule->redirect_ifindex);
-        DUMP(bf_dump_prefix_last(prefix), "redirect_dir: %s",
+        DUMP(prefix, "redirect_dir: %s",
              bf_redirect_dir_to_str(rule->redirect_dir));
     } else {
         DUMP(prefix, "redirect_ifindex: <not set>");
-        DUMP(bf_dump_prefix_last(prefix), "redirect_dir: <not set>");
+        DUMP(prefix, "redirect_dir: <not set>");
+    }
+    if (rule->verdict == BF_VERDICT_REJECT) {
+        DUMP(bf_dump_prefix_last(prefix), "reject_type: %s",
+             bf_reject_type_to_str(rule->reject_type));
+    } else {
+        DUMP(bf_dump_prefix_last(prefix), "reject_type: <not set>");
     }
 
     bf_dump_prefix_pop(prefix);
