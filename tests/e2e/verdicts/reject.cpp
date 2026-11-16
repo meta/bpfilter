@@ -143,6 +143,8 @@ void assert_icmp_reply(const bft::Packet &pkt,
 
     assert_int_equal(iph->version, 4);
     assert_int_equal(iph->ihl, 5);
+    // The original TOS bits, with the internetwork control precedence
+    assert_int_equal(iph->tos, (orig->tos & 0x1e) | 0xc0);
     assert_int_equal(ntohs(iph->tot_len), reply.size() - ETH_HLEN);
     assert_int_equal(iph->frag_off, htons(0x4000));
     assert_int_equal(iph->ttl, 64);
@@ -250,6 +252,13 @@ static void ip4_reply(void **state)
     // ICMP requests are answered, as with the kernel's icmp_send()
     pkt = bft::Ethernet() / bft::IPv4 {} / bft::ICMPv4 {};
     assert_icmp_reply(pkt, run_xdp("reject", pkt, XDP_TX));
+
+    // DSCP EF and ECT(1): the reply keeps the TOS bits (0x18) and has the
+    // internetwork control precedence (0xc0)
+    pkt = bft::Ethernet() / bft::IPv4 {.tos = 0xb9} / bft::UDP {};
+    auto reply = run_xdp("reject", pkt, XDP_TX);
+    assert_icmp_reply(pkt, reply);
+    assert_int_equal(reply[ETH_HLEN + offsetof(struct iphdr, tos)], 0xd8);
 
     // IP options are quoted too
     pkt = bft::Ethernet() / bft::IPv4 {} / bft::UDP {};

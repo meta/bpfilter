@@ -64,10 +64,11 @@ static __always_inline bool bf_ip4_is_unicast(__be32 addr)
  * Reply to an IPv4 packet with an ICMP error, in place.
  *
  * The reply quotes the original IP header and the first 8 bytes of its
- * payload, its addresses are the original addresses swapped. No reply is sent
- * to link-layer broadcast or multicast frames, to packets from or to a
- * non-unicast address, to fragments other than the first, to ICMP errors, or
- * to malformed packets: they are dropped.
+ * payload, its addresses are the original addresses swapped, and its TOS is
+ * the original TOS bits with the internetwork control precedence, as with
+ * icmp_send(). No reply is sent to link-layer broadcast or multicast frames,
+ * to packets from or to a non-unicast address, to fragments other than the
+ * first, to ICMP errors, or to malformed packets: they are dropped.
  *
  * @param ctx Runtime context of the program.
  * @param type ICMP type of the reply.
@@ -129,6 +130,9 @@ int bf_xdp_reject_icmp(struct bf_runtime *ctx, __u8 type, __u8 code)
 
     iph.version = 4;
     iph.ihl = sizeof(iph) / 4;
+    /* As with icmp_send(): the original TOS bits, with the internetwork
+     * control precedence. */
+    iph.tos = (orig->tos & IPTOS_TOS_MASK) | IPTOS_PREC_INTERNETCONTROL;
     iph.tot_len =
         bpf_htons(sizeof(iph) + sizeof(icmph) + hdr_len + BF_ICMP_QUOTE_LEN);
     iph.frag_off = bpf_htons(BF_IP_DF);
