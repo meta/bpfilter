@@ -925,6 +925,7 @@ int bf_codegen_emit_fixup_elfstub(struct bf_codegen *program,
 int bf_codegen_generate(struct bf_codegen *program)
 {
     const struct bf_chain *chain = program->runtime.chain;
+    bool has_reject = false;
     int ret_code;
     int r;
 
@@ -972,11 +973,18 @@ int bf_codegen_generate(struct bf_codegen *program)
     }
 
     bf_list_foreach (&chain->rules, rule_node) {
-        r = _bf_codegen_generate_rule(program,
-                                      bf_list_node_get_data(rule_node));
+        struct bf_rule *rule = bf_list_node_get_data(rule_node);
+
+        r = _bf_codegen_generate_rule(program, rule);
         if (r)
             return r;
+
+        if (rule->verdict == BF_VERDICT_REJECT)
+            has_reject = true;
     }
+
+    if (has_reject)
+        bf_warn("chain '%s': REJECT replies are not rate-limited", chain->name);
 
     r = program->runtime.ops->gen_inline_epilogue(program);
     if (r)

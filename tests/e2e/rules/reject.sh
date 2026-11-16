@@ -51,12 +51,14 @@ ${HOST_BFCLI} chain set --from-str "chain napi BF_HOOK_XDP{ifindex=${HOST_IFINDE
 ip -6 addr add fd00::1/64 dev ${VETH_HOST} nodad
 ${FROM_NS} ip -6 addr add fd00::2/64 dev ${VETH_NS} nodad
 
-${FROM_NS} ${BFCLI} chain set --from-str "chain reject BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT
+# Loading a chain using REJECT warns that its replies are not rate-limited
+OUTPUT=$(${FROM_NS} ${BFCLI} chain set --from-str "chain reject BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT
     rule ip4.proto icmp counter REJECT
     rule ip4.proto udp counter REJECT
     rule ip4.proto tcp counter REJECT
     rule icmpv6.type eq echo-request counter REJECT
-    rule meta.l3_proto ipv6 meta.l4_proto udp counter REJECT"
+    rule meta.l3_proto ipv6 meta.l4_proto udp counter REJECT" 2>&1)
+echo "${OUTPUT}" | grep "chain 'reject': REJECT replies are not rate-limited"
 
 # The original packets never reach the namespace: the replies come from REJECT
 ping -c 1 -W 1 ${NS_IP_ADDR} | grep "Destination Port Unreachable"
