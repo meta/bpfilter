@@ -55,7 +55,15 @@ Note ``CONTINUE`` means a packet can be counted more than once if multiple rules
 
 .. note::
 
-    ``REJECT`` is only supported by ``BF_HOOK_XDP``. The reply is built in place of the original packet, and sent back through the interface it was received on: its addresses are the original addresses swapped, and it quotes the original IP header, with its options or IPv6 extension headers, and the first 8 bytes of the transport header (at most 1232 bytes for IPv6). IPv4 packets are answered with an ICMP type 3 code 3 error, and IPv6 packets with an ICMPv6 type 1 code 4 error. Packets ``icmp_send()`` wouldn't answer are dropped without a reply: link-layer broadcast and multicast frames, packets from or to a non-unicast address, fragments other than the first one, ICMP and ICMPv6 errors, and malformed packets, as well as the packets with less than 8 bytes after their IP header (and IPv6 extension headers), or which are neither IPv4 nor IPv6. The transport layer checksum of the original packet is not verified, and the frame's destination MAC address is not compared to the interface's: on a promiscuous interface, unicast frames addressed to another host are answered too. Replies are not rate-limited.
+    ``REJECT`` is only supported by ``BF_HOOK_XDP``. The reply is built in place of the original packet, and sent back through the interface it was received on, with the original addresses swapped. IPv4 packets are answered with an ICMP type 3 code 3 error quoting the original IP header, with its options, and the first 8 bytes of its payload. IPv6 packets are answered with an ICMPv6 type 1 code 4 error quoting as much of the original packet as fits in the minimum IPv6 MTU (up to 1232 bytes), which must include the IPv6 extension headers and the first 8 bytes of the transport header. Packets ``icmp_send()`` wouldn't answer are dropped without a reply: link-layer broadcast and multicast frames, packets from or to a non-unicast address, fragments other than the first one, ICMP and ICMPv6 errors, and malformed packets, as well as the packets with less than 8 bytes after their IP header (and IPv6 extension headers), or which are neither IPv4 nor IPv6. The transport layer checksum of the original packet is not verified, and the frame's destination MAC address is not compared to the interface's: on a promiscuous interface, unicast frames addressed to another host are answered too.
+
+    Also note:
+
+    - Replies are not rate-limited, unlike the kernel's ICMP errors: bpfilter prints a warning when it loads a chain using ``REJECT``.
+    - The reply's source address is the original destination address. On a router, packets addressed to another host are answered with that host's address, while ``icmp_send()`` would use an address of the router.
+    - Frames with a VLAN tag in the packet data are dropped without a reply.
+    - On a veth interface, ``XDP_TX`` frames only reach the peer if the peer has NAPI enabled (an XDP program attached, or GRO enabled). Otherwise, ``REJECT`` behaves like ``DROP``.
+    - The rule's counter counts every packet matching the rule, whether it was answered or dropped without a reply.
 
 .. note::
 
