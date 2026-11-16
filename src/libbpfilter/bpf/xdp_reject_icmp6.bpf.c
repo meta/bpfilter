@@ -20,12 +20,13 @@
 #define BF_IPV6_EXT_MAX_CHAIN 6
 #define BF_IPV6_FRAG_OFFSET 0xfff8
 
-/* Number of bytes of the transport header quoted after the IPv6 header and its
- * extension headers, as for ICMP. */
+/* Number of bytes of the transport header the quote must contain, after the
+ * IPv6 header and its extension headers, as for ICMP. */
 #define BF_ICMPV6_QUOTE_L4_LEN 8
 
-/* The reply must not exceed the minimum IPv6 MTU (RFC 4443 section 2.4), so
- * at most 1280 - 40 - 8 bytes are quoted. */
+/* The reply quotes as much of the original packet as fits in the minimum IPv6
+ * MTU (RFC 4443 section 2.4 (c)), so at most 1280 - 40 - 8 bytes, as
+ * icmp6_send() does. */
 #define BF_ICMPV6_QUOTE_MAX_LEN 1232
 
 #define BF_REJECT_HOP_LIMIT 64
@@ -68,9 +69,10 @@ static __always_inline bool bf_ip6_is_ext_hdr(__u8 nexthdr)
 /**
  * Reply to an IPv6 packet with an ICMPv6 error, in place.
  *
- * The reply quotes the original IPv6 header, its extension headers, and the
- * first 8 bytes of the transport header, which the sender needs to find the
- * socket the error is for. Its addresses are the original addresses swapped.
+ * The reply quotes the original packet, up to 1232 bytes: it must contain the
+ * IPv6 header, the extension headers, and the first 8 bytes of the transport
+ * header, which the sender needs to find the socket the error is for. Its
+ * addresses are the original addresses swapped.
  * No reply is sent to link-layer broadcast or multicast frames, to packets
  * from or to a non-unicast address, to fragments other than the first, to
  * ICMPv6 errors, or to malformed packets: they are dropped.
@@ -88,10 +90,12 @@ int bf_xdp_reject_icmp6(struct bf_runtime *ctx, __u8 type, __u8 code)
     struct ipv6hdr ip6h = {};
     struct ipv6hdr orig;
     __be32 pseudo_tail[2];
+    __u8 last[8] = {};
     __u8 mac[ETH_ALEN];
     struct ethhdr eth;
     __u32 payload_len;
     __u32 quote_len;
+    __u32 last_len;
     __u8 nexthdr;
     __u32 off;
     __s64 csum;
@@ -147,11 +151,16 @@ int bf_xdp_reject_icmp6(struct bf_runtime *ctx, __u8 type, __u8 code)
             return XDP_DROP;
     }
 
-    // Extension headers are 8-byte aligned, so is the quote
+    // The quote must contain the first bytes of the transport header
     quote_len = off - ETH_HLEN + BF_ICMPV6_QUOTE_L4_LEN;
     if (quote_len > sizeof(orig) + payload_len ||
-        quote_len > BF_ICMPV6_QUOTE_MAX_LEN || quote_len % 8)
+        quote_len > BF_ICMPV6_QUOTE_MAX_LEN)
         return XDP_DROP;
+
+    // Quote the whole packet, without its link-layer padding, if it fits
+    quote_len = sizeof(orig) + payload_len;
+    if (quote_len > BF_ICMPV6_QUOTE_MAX_LEN)
+        quote_len = BF_ICMPV6_QUOTE_MAX_LEN;
 
     __builtin_memcpy(mac, eth.h_dest, ETH_ALEN);
     __builtin_memcpy(eth.h_dest, eth.h_source, ETH_ALEN);
@@ -174,8 +183,12 @@ int bf_xdp_reject_icmp6(struct bf_runtime *ctx, __u8 type, __u8 code)
                          sizeof(ip6h.saddr) + sizeof(ip6h.daddr), 0);
     csum = bpf_csum_diff(NULL, 0, pseudo_tail, sizeof(pseudo_tail), csum);
     csum = bpf_csum_diff(NULL, 0, (__be32 *)&icmp6h, sizeof(icmp6h), csum);
-    for (__u32 i = 0; i < BF_ICMPV6_QUOTE_MAX_LEN / 8 && i * 8 < quote_len;
-         ++i) {
+
+    /* Sum the quote by 8-byte chunks. The last chunk has 1 to 8 bytes: it is
+     * padded with zeros, which doesn't change the sum. */
+    last_len = ((quote_len - 1) & 7) + 1;
+    for (__u32 i = 0;
+         i < BF_ICMPV6_QUOTE_MAX_LEN / 8 && i * 8 + last_len < quote_len; ++i) {
         __be32 chunk[2];
 
         if (bpf_xdp_load_bytes(xdp, ETH_HLEN + i * 8, chunk, sizeof(chunk)))
@@ -183,6 +196,12 @@ int bf_xdp_reject_icmp6(struct bf_runtime *ctx, __u8 type, __u8 code)
 
         csum = bpf_csum_diff(NULL, 0, chunk, sizeof(chunk), csum);
     }
+
+    if (bpf_xdp_load_bytes(xdp, ETH_HLEN + quote_len - last_len, last,
+                           last_len))
+        return XDP_DROP;
+
+    csum = bpf_csum_diff(NULL, 0, (__be32 *)last, sizeof(last), csum);
     icmp6h.icmp6_cksum = bf_csum_fold(csum);
 
     /* Make room for the new IPv6 and ICMPv6 headers in front of the original

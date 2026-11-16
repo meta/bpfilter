@@ -91,6 +91,11 @@ test "$(get_counter reject 2)" = "1"
 ping -6 -c 1 -W 1 fd00::2 | grep "Destination unreachable: Port unreachable"
 test "$(get_counter reject 3)" = "1"
 
+# Longer packets are quoted up to 1232 bytes: an odd length, then the cap
+ping -6 -c 1 -W 1 -s 1001 fd00::2 | grep "Destination unreachable: Port unreachable"
+ping -6 -c 1 -W 1 -s 1400 fd00::2 | grep "Destination unreachable: Port unreachable"
+test "$(get_counter reject 3)" = "3"
+
 python3 -c "
 import socket
 s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)

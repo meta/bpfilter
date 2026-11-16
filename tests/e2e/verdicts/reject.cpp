@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
  */
 
+#include <algorithm>
 #include <cstring>
 #include <initializer_list>
 #include <vector>
@@ -92,21 +93,22 @@ bf::Rule reject_rule()
 }
 
 /**
- * Run @p pkt through the XDP program of chain @p name, check the program
- * returned @p expected, and return the packet as the program left it.
+ * Run the @p len bytes packet @p data through the XDP program of chain
+ * @p name , check the program returned @p expected , and return the packet as
+ * the program left it.
  */
-std::vector<uint8_t> run_xdp(const char *name, const bft::Packet &pkt,
+std::vector<uint8_t> run_xdp(const char *name, const uint8_t *data, size_t len,
                              int expected)
 {
-    std::vector<uint8_t> out(512);
+    std::vector<uint8_t> out(2048);
     _cleanup_close_ int fd = bf_chain_prog_fd(name);
     union bpf_attr attr = {};
 
     assert_true(fd >= 0);
 
     attr.test.prog_fd = fd;
-    attr.test.data_in = (unsigned long long)pkt.data.data();
-    attr.test.data_size_in = pkt.len;
+    attr.test.data_in = (unsigned long long)data;
+    attr.test.data_size_in = len;
     attr.test.data_out = (unsigned long long)out.data();
     attr.test.data_size_out = out.size();
     attr.test.repeat = 1;
@@ -117,6 +119,12 @@ std::vector<uint8_t> run_xdp(const char *name, const bft::Packet &pkt,
     out.resize(attr.test.data_size_out);
 
     return out;
+}
+
+std::vector<uint8_t> run_xdp(const char *name, const bft::Packet &pkt,
+                             int expected)
+{
+    return run_xdp(name, pkt.data.data(), pkt.len, expected);
 }
 
 /**
@@ -162,19 +170,18 @@ void assert_icmp_reply(const bft::Packet &pkt,
     assert_memory_equal(quote, &pkt.data[ETH_HLEN], quote_len);
 }
 
-// Quote of an IPv6 packet without extension headers
-constexpr size_t kIPv6Quote = sizeof(struct ipv6hdr) + 8;
+// Longest quote of an ICMPv6 error: 1280 - 40 - 8 bytes
+constexpr size_t kIPv6QuoteMax = 1232;
 
 /**
  * Check @p reply is the ICMPv6 port unreachable error for the IPv6 packet
- * @p pkt , quoting its first @p quote_len bytes.
+ * @p pkt , quoting the packet up to 1232 bytes.
  */
-void assert_icmp6_reply(const bft::Packet &pkt,
-                        const std::vector<uint8_t> &reply,
-                        size_t quote_len = kIPv6Quote)
+void assert_icmp6_reply(const uint8_t *pkt, const std::vector<uint8_t> &reply)
 {
-    const auto *orig =
-        reinterpret_cast<const struct ipv6hdr *>(&pkt.data[ETH_HLEN]);
+    const auto *orig = reinterpret_cast<const struct ipv6hdr *>(&pkt[ETH_HLEN]);
+    const size_t quote_len =
+        std::min(sizeof(*orig) + ntohs(orig->payload_len), kIPv6QuoteMax);
     const auto *eth = reinterpret_cast<const struct ethhdr *>(reply.data());
     const auto *ip6h =
         reinterpret_cast<const struct ipv6hdr *>(&reply[ETH_HLEN]);
@@ -182,14 +189,20 @@ void assert_icmp6_reply(const bft::Packet &pkt,
         &reply[ETH_HLEN + sizeof(*ip6h)]);
     const uint8_t *quote = &reply[ETH_HLEN + sizeof(*ip6h) + sizeof(*icmp6h)];
     const uint32_t icmp6_len = sizeof(*icmp6h) + quote_len;
-    const uint8_t pseudo_tail[] = {0, 0, 0, static_cast<uint8_t>(icmp6_len),
-                                   0, 0, 0, IPPROTO_ICMPV6};
+    const uint8_t pseudo_tail[] = {0,
+                                   0,
+                                   static_cast<uint8_t>(icmp6_len >> 8),
+                                   static_cast<uint8_t>(icmp6_len),
+                                   0,
+                                   0,
+                                   0,
+                                   IPPROTO_ICMPV6};
     uint32_t sum;
 
     assert_int_equal(reply.size(), ETH_HLEN + sizeof(*ip6h) + icmp6_len);
 
-    assert_memory_equal(eth->h_dest, &pkt.data[ETH_ALEN], ETH_ALEN);
-    assert_memory_equal(eth->h_source, &pkt.data[0], ETH_ALEN);
+    assert_memory_equal(eth->h_dest, &pkt[ETH_ALEN], ETH_ALEN);
+    assert_memory_equal(eth->h_source, &pkt[0], ETH_ALEN);
     assert_int_equal(eth->h_proto, htons(ETH_P_IPV6));
 
     // Version 6, traffic class and flow label 0
@@ -208,7 +221,13 @@ void assert_icmp6_reply(const bft::Packet &pkt,
     sum = sum16(pseudo_tail, sizeof(pseudo_tail), sum);
     assert_int_equal(
         csum(reinterpret_cast<const uint8_t *>(icmp6h), icmp6_len, sum), 0);
-    assert_memory_equal(quote, &pkt.data[ETH_HLEN], quote_len);
+    assert_memory_equal(quote, &pkt[ETH_HLEN], quote_len);
+}
+
+void assert_icmp6_reply(const bft::Packet &pkt,
+                        const std::vector<uint8_t> &reply)
+{
+    assert_icmp6_reply(pkt.data.data(), reply);
 }
 
 } // namespace
@@ -374,16 +393,21 @@ static void ip6_reply(void **state)
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::UDP {};
     assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
+    // The whole TCP header is quoted: 60 bytes, not a multiple of 8
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::TCP {.syn = true};
     assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::ICMPv6 {};
     assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
-    // Extension headers are quoted, up to the transport header
+    // The traffic class of the reply is 0, as with the kernel's icmp6_send()
+    pkt = bft::Ethernet() / bft::IPv6 {.traffic_class = 0xb9} / bft::UDP {};
+    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
+
+    // Extension headers are quoted
     pkt =
         bft::Ethernet() / bft::IPv6 {} / bft::IPv6HopByHop {} / bft::ICMPv6 {};
-    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX), kIPv6Quote + 8);
+    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
     // Routing, destination options, and authentication headers of 8 bytes
     for (uint8_t nexthdr: std::initializer_list<uint8_t> {
@@ -391,23 +415,41 @@ static void ip6_reply(void **state)
         pkt =
             bft::Ethernet() / bft::IPv6 {} / bft::IPv6HopByHop {} / bft::UDP {};
         pkt.data[ETH_HLEN + offsetof(struct ipv6hdr, nexthdr)] = nexthdr;
-        assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX), kIPv6Quote + 8);
+        assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
     }
 
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::IPv6HopByHop {} /
           bft::IPv6HopByHop {} / bft::IPv6HopByHop {} / bft::IPv6HopByHop {} /
           bft::IPv6HopByHop {} / bft::IPv6HopByHop {} / bft::UDP {};
-    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX), kIPv6Quote + 48);
+    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
     // First fragment
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::IPv6Fragment {} / bft::UDP {};
-    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX), kIPv6Quote + 8);
+    assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
 
-    // The reply is cut after the quote, even if the packet is longer
+    // The bytes after the IPv6 payload, such as Ethernet padding, are not
+    // quoted
     pkt = bft::Ethernet() / bft::IPv6 {} / bft::UDP {};
     pkt.len += 32;
-    pkt.data[ETH_HLEN + 5] += 32;
     assert_icmp6_reply(pkt, run_xdp("reject", pkt, XDP_TX));
+
+    /* Longer packets are quoted up to 1232 bytes: quotes of 121 and 1231
+     * bytes, exactly 1232 bytes, then capped at 1232 bytes. */
+    pkt = bft::Ethernet() / bft::IPv6 {} / bft::UDP {};
+    for (size_t payload_len:
+         std::initializer_list<size_t> {81, 1191, 1192, 1193, 1460}) {
+        std::vector<uint8_t> big(ETH_HLEN + sizeof(struct ipv6hdr) +
+                                 payload_len);
+
+        std::copy_n(pkt.data.begin(), pkt.len, big.begin());
+        for (size_t i = pkt.len; i < big.size(); ++i)
+            big[i] = static_cast<uint8_t>(i * 7 + 3);
+        big[ETH_HLEN + 4] = static_cast<uint8_t>(payload_len >> 8);
+        big[ETH_HLEN + 5] = static_cast<uint8_t>(payload_len);
+
+        assert_icmp6_reply(big.data(),
+                           run_xdp("reject", big.data(), big.size(), XDP_TX));
+    }
 
     // Rules matching IPv6 only never reach the reply of other protocols
     BFT_CHAIN_SET(bf::Chain("reject_ip6", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
