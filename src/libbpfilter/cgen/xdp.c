@@ -113,21 +113,37 @@ static int _bf_xdp_gen_inline_redirect(struct bf_codegen *program,
 }
 
 /**
- * ICMP and ICMPv6 types and codes of the replies sent for each reject type.
+ * Reply to the packets of a network protocol: the ELF stub replacing the packet
+ * with the reply, and the arguments passed to the stub after the runtime
+ * context.
+ */
+struct bf_xdp_reject_reply
+{
+    enum bf_elfstub_id stub;
+    uint8_t args[2];
+};
+
+/**
+ * Replies sent for each reject type, to IPv4 and IPv6 packets. The ICMP and
+ * ICMPv6 stubs take the type and code of the error as arguments.
  */
 static const struct
 {
-    uint8_t icmp_type;
-    uint8_t icmp_code;
-    uint8_t icmp6_type;
-    uint8_t icmp6_code;
+    struct bf_xdp_reject_reply ipv4;
+    struct bf_xdp_reject_reply ipv6;
 } _bf_xdp_reject_replies[] = {
     [BF_REJECT_PORT_UNREACH] =
         {
-            ICMP_DEST_UNREACH,
-            ICMP_PORT_UNREACH,
-            ICMPV6_DEST_UNREACH,
-            ICMPV6_PORT_UNREACH,
+            .ipv4 =
+                {
+                    BF_ELFSTUB_XDP_REJECT_ICMP,
+                    {ICMP_DEST_UNREACH, ICMP_PORT_UNREACH},
+                },
+            .ipv6 =
+                {
+                    BF_ELFSTUB_XDP_REJECT_ICMP6,
+                    {ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH},
+                },
         },
 };
 static_assert_enum_mapping(_bf_xdp_reject_replies, _BF_REJECT_TYPE_MAX);
@@ -135,31 +151,30 @@ static_assert_enum_mapping(_bf_xdp_reject_replies, _BF_REJECT_TYPE_MAX);
 /**
  * @brief Generate bytecode to reply to the packets of a given L3 protocol.
  *
- * If the packet's L3 protocol is @p l3_proto , call the ELF stub @p stub to
- * replace the packet with the reply, and return the stub's verdict.
+ * If the packet's L3 protocol is @p l3_proto , call the ELF stub of @p reply
+ * to replace the packet with the reply, and return the stub's verdict.
  *
  * @param program Program to generate bytecode for. Can't be NULL.
  * @param l3_proto L3 protocol ID, in host byte order.
- * @param stub ELF stub building the reply. It takes the runtime context, the
- *        reply's type, and code as arguments, and returns an XDP verdict.
- * @param type Type of the reply, specific to the reply's protocol.
- * @param code Code of the reply, specific to the reply's protocol.
+ * @param reply Reply to send. The stub is called with the runtime context and
+ *        the reply's arguments, and returns an XDP verdict. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure.
  */
-static int _bf_xdp_gen_inline_reject_reply(struct bf_codegen *program,
-                                           uint16_t l3_proto,
-                                           enum bf_elfstub_id stub,
-                                           uint8_t type, uint8_t code)
+static int
+_bf_xdp_gen_inline_reject_reply(struct bf_codegen *program, uint16_t l3_proto,
+                                const struct bf_xdp_reject_reply *reply)
 {
+    assert(reply);
+
     // The L3 protocol ID is stored in r7
     _clean_bf_jmpctx_ struct bf_jmpctx _ = bf_jmpctx_get(
         program, BPF_JMP_IMM(BPF_JNE, BPF_REG_7, htobe16(l3_proto), 0));
 
     EMIT(program, BPF_MOV64_REG(BPF_REG_1, BPF_REG_10));
     EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
-    EMIT(program, BPF_MOV64_IMM(BPF_REG_2, type));
-    EMIT(program, BPF_MOV64_IMM(BPF_REG_3, code));
-    EMIT_FIXUP_ELFSTUB(program, stub);
+    EMIT(program, BPF_MOV64_IMM(BPF_REG_2, reply->args[0]));
+    EMIT(program, BPF_MOV64_IMM(BPF_REG_3, reply->args[1]));
+    EMIT_FIXUP_ELFSTUB(program, reply->stub);
     EMIT(program, BPF_EXIT_INSN());
 
     return 0;
@@ -188,16 +203,12 @@ static int _bf_xdp_gen_inline_reject(struct bf_codegen *program,
         return bf_err_r(-EINVAL, "unknown reject type %d", type);
 
     r = _bf_xdp_gen_inline_reject_reply(program, ETH_P_IP,
-                                        BF_ELFSTUB_XDP_REJECT_ICMP,
-                                        _bf_xdp_reject_replies[type].icmp_type,
-                                        _bf_xdp_reject_replies[type].icmp_code);
+                                        &_bf_xdp_reject_replies[type].ipv4);
     if (r)
         return r;
 
-    r = _bf_xdp_gen_inline_reject_reply(
-        program, ETH_P_IPV6, BF_ELFSTUB_XDP_REJECT_ICMP6,
-        _bf_xdp_reject_replies[type].icmp6_type,
-        _bf_xdp_reject_replies[type].icmp6_code);
+    r = _bf_xdp_gen_inline_reject_reply(program, ETH_P_IPV6,
+                                        &_bf_xdp_reject_replies[type].ipv6);
     if (r)
         return r;
 
