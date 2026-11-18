@@ -15,7 +15,10 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <optional>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace bft
 {
@@ -69,6 +72,19 @@ IPv6Addr::IPv6Addr(const char *str)
     if (inet_pton(AF_INET6, str, &in6) != 1)
         throw std::invalid_argument(str);
     std::memcpy(addr.data(), &in6, addr.size());
+}
+
+size_t VLAN::size()
+{
+    return 2 * sizeof(uint16_t);
+}
+
+size_t VLAN::write(uint8_t *buf, uint16_t proto) const
+{
+    const uint16_t tag[] = {htons(tci), htons(proto)};
+
+    std::memcpy(buf, tag, sizeof(tag));
+    return sizeof(tag);
 }
 
 size_t Ethernet::size()
@@ -228,6 +244,72 @@ size_t ICMPv6::write(uint8_t *buf) const
     hdr.icmp6_cksum = 0;
     std::memcpy(buf, &hdr, sizeof(hdr));
     return sizeof(hdr);
+}
+
+Packet operator/(detail::Header first, detail::Header second)
+{
+    Packet pkt;
+
+    pkt._headers.push_back(std::move(first));
+    return std::move(pkt) / std::move(second);
+}
+
+Packet operator/(Packet pkt, detail::Header header)
+{
+    const auto size = [](const auto &hdr) { return hdr.size(); };
+    uint16_t next_ether_type = 0;
+    std::optional<uint8_t> next_ip_proto;
+    size_t total = 0;
+    size_t payload = 0;
+
+    pkt._headers.push_back(std::move(header));
+    for (const auto &hdr: pkt._headers)
+        total += std::visit(size, hdr);
+
+    if (total > pkt.data.size())
+        throw std::runtime_error("packet buffer overflow");
+
+    // Write from the innermost header out so the next protocol and payload size
+    // are known when writing each header.
+    for (auto it = pkt._headers.rbegin(); it != pkt._headers.rend(); ++it) {
+        const size_t header_size = std::visit(size, *it);
+        auto *buf = pkt.data.data() + total - payload - header_size;
+
+        std::visit(
+            [&](const auto &hdr) {
+                using Header = std::remove_cvref_t<decltype(hdr)>;
+
+                if constexpr (requires {
+                                  hdr.write(buf, uint8_t {}, payload);
+                              }) {
+                    constexpr uint8_t terminal =
+                        std::is_same_v<Header, IPv4> ? 0 : IPPROTO_NONE;
+                    (void)hdr.write(buf, next_ip_proto.value_or(terminal),
+                                    payload);
+                } else if constexpr (requires { hdr.ether_type; }) {
+                    (void)hdr.write(buf, next_ether_type);
+                } else if constexpr (requires { hdr.write(buf, uint8_t {}); }) {
+                    (void)hdr.write(buf, next_ip_proto.value_or(IPPROTO_NONE));
+                } else {
+                    (void)hdr.write(buf);
+                }
+
+                if constexpr (requires { hdr.ether_type; })
+                    next_ether_type = hdr.ether_type;
+                else
+                    next_ether_type = 0;
+
+                if constexpr (requires { hdr.ip_proto; })
+                    next_ip_proto = hdr.ip_proto;
+                else
+                    next_ip_proto.reset();
+            },
+            *it);
+        payload += header_size;
+    }
+
+    pkt.len = total;
+    return pkt;
 }
 
 } // namespace bft

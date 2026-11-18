@@ -8,7 +8,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include <variant>
+#include <vector>
 
 namespace bft
 {
@@ -16,15 +17,18 @@ namespace bft
 constexpr size_t kEthernetAddrLen = 6;
 
 /**
- * @brief Raw packet buffer.
- *
- * Holds a serialized packet built by composing protocol layers with the `/`
- * operator (e.g. `Ethernet{} / IPv4{} / TCP{}`).
+ * @brief VLAN tag with an EtherType and tag control information in host order.
  */
-struct Packet
+struct VLAN
 {
-    std::array<uint8_t, 128> data = {};
-    size_t len = 0;
+    static constexpr uint16_t k8021Q = 0x8100;
+    static constexpr uint16_t k8021AD = 0x88a8;
+
+    uint16_t ether_type = k8021Q;
+    uint16_t tci = 0;
+
+    [[nodiscard]] static size_t size();
+    [[nodiscard]] size_t write(uint8_t *buf, uint16_t proto) const;
 };
 
 /**
@@ -34,8 +38,13 @@ struct Packet
  */
 struct Ethernet
 {
+    static constexpr uint16_t kTransparentBridging = 0x6558; // ETH_P_TEB
+
     std::array<uint8_t, kEthernetAddrLen> dst = {0x02, 0, 0, 0, 0, 0x01};
     std::array<uint8_t, kEthernetAddrLen> src = {0x02, 0, 0, 0, 0, 0x02};
+
+    /// EtherType advertised to the preceding header, if present.
+    uint16_t ether_type = kTransparentBridging;
 
     [[nodiscard]] static size_t size();
     [[nodiscard]] size_t write(uint8_t *buf, uint16_t proto) const;
@@ -71,6 +80,7 @@ struct IPv4
     uint8_t tos = 0;
 
     static constexpr uint16_t ether_type = 0x0800;
+    static constexpr uint8_t ip_proto = 4; // IPPROTO_IPIP
 
     [[nodiscard]] static size_t size();
     [[nodiscard]] size_t write(uint8_t *buf, uint8_t proto,
@@ -104,6 +114,7 @@ struct IPv6
     uint8_t traffic_class = 0;
 
     static constexpr uint16_t ether_type = 0x86dd;
+    static constexpr uint8_t ip_proto = 41; // IPPROTO_IPV6
 
     [[nodiscard]] static size_t size();
     [[nodiscard]] size_t write(uint8_t *buf, uint8_t proto,
@@ -216,108 +227,34 @@ struct ICMPv6
     [[nodiscard]] size_t write(uint8_t *buf) const;
 };
 
-/**
- * @brief IPv6 extension header: written with the protocol of the next layer.
- */
-template<typename T>
-concept IPv6ExtHdr =
-    requires(const T &layer, uint8_t *buf) { layer.write(buf, T::ip_proto); };
-
 namespace detail
 {
 
-/**
- * @brief Intermediate state for the `Ethernet{} / L3{}` partial stack.
- *
- * Not meant to be used directly — produced by `operator/` and consumed
- * by a second `operator/` that appends the L4 layer and produces a `Packet`.
- */
-template<typename L3>
-struct Partial
-{
-    Ethernet l2;
-    L3 l3;
-};
-
-/**
- * @brief Network layer followed by an IPv6 extension header.
- *
- * Produced by `operator/`. It is used as a network layer, so extension headers
- * can be chained before the transport layer.
- */
-template<typename L3, IPv6ExtHdr Ext>
-struct WithExtHdr
-{
-    L3 l3;
-    Ext ext;
-
-    static constexpr uint16_t ether_type = L3::ether_type;
-
-    [[nodiscard]] static size_t size()
-    {
-        return L3::size() + Ext::size();
-    }
-
-    [[nodiscard]] size_t write(uint8_t *buf, uint8_t proto,
-                               size_t payload) const
-    {
-        const size_t off = l3.write(buf, Ext::ip_proto, Ext::size() + payload);
-
-        return off + ext.write(buf + off, proto);
-    }
-};
+using Header = std::variant<Ethernet, VLAN, IPv4, IPv6, IPv6HopByHop,
+                            IPv6Fragment, TCP, UDP, ICMPv4, ICMPv6>;
 
 } // namespace detail
 
 /**
- * @brief Compose an Ethernet layer with a network layer (e.g. `IPv4`, `IPv6`).
+ * @brief Serialized packet that can be extended with the `/` operator.
  *
- * @return An intermediate `detail::Partial` that must be combined with a
- *         transport layer via a second `/` to produce a `Packet`.
+ * Each composition writes the headers in the supplied order and updates
+ * lengths and next-protocol fields. Composing again regenerates the bytes
+ * from the saved headers.
  */
-template<typename L3>
-detail::Partial<L3> operator/(Ethernet layer2, L3 layer3)
+struct Packet
 {
-    return {layer2, layer3};
-}
+    std::array<uint8_t, 256> data = {};
+    size_t len = 0;
 
-/**
- * @brief Append an IPv6 extension header to a partial stack.
- *
- * Usage: `auto pkt = Ethernet{} / IPv6{} / IPv6HopByHop{} / TCP{};`
- */
-template<typename L3, IPv6ExtHdr Ext>
-detail::Partial<detail::WithExtHdr<L3, Ext>>
-operator/(detail::Partial<L3> stack, Ext ext)
-{
-    return {stack.l2, {stack.l3, ext}};
-}
+private:
+    std::vector<detail::Header> _headers;
 
-/**
- * @brief Append a transport layer to a partial stack and serialize a `Packet`.
- *
- * Usage: `auto pkt = Ethernet{} / IPv4{} / TCP{.dport = 443};`
- */
-template<typename L3, typename L4>
-Packet operator/(detail::Partial<L3> stack, L4 layer4)
-{
-    Packet pkt;
-    size_t off = 0;
+    friend Packet operator/(detail::Header first, detail::Header second);
+    friend Packet operator/(Packet pkt, detail::Header header);
+};
 
-    if (off + stack.l2.size() > pkt.data.size())
-        throw std::runtime_error("packet buffer overflow");
-    off += stack.l2.write(pkt.data.data() + off, L3::ether_type);
-
-    if (off + stack.l3.size() > pkt.data.size())
-        throw std::runtime_error("packet buffer overflow");
-    off += stack.l3.write(pkt.data.data() + off, L4::ip_proto, layer4.size());
-
-    if (off + layer4.size() > pkt.data.size())
-        throw std::runtime_error("packet buffer overflow");
-    off += layer4.write(pkt.data.data() + off);
-
-    pkt.len = off;
-    return pkt;
-}
+Packet operator/(detail::Header first, detail::Header second);
+Packet operator/(Packet pkt, detail::Header header);
 
 } // namespace bft
