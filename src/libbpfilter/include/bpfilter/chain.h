@@ -65,6 +65,9 @@ struct bf_chain
 
     /// Error counters. Not serialized.
     struct bf_counter error_counters;
+
+    /// Counters for packets dropped by the parser. Not serialized.
+    struct bf_counter parser_drop_counters;
 };
 
 /**

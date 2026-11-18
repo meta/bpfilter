@@ -137,8 +137,11 @@ void bfc_chain_dump(struct bf_chain *chain, struct bf_hookopts *hookopts,
     }
 
     if (is_pkt_hook) {
-        (void)fprintf(stdout, "error %lu packets %lu bytes\n",
+        (void)fprintf(stdout, "error %lu packets %lu bytes; ",
                       chain->error_counters.count, chain->error_counters.size);
+        (void)fprintf(stdout, "parser-drop %lu packets %lu bytes\n",
+                      chain->parser_drop_counters.count,
+                      chain->parser_drop_counters.size);
     } else {
         (void)fprintf(stdout, "error %lu calls\n", chain->error_counters.count);
     }

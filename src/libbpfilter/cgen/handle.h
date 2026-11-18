@@ -198,8 +198,8 @@ void bf_handle_unload(struct bf_handle *handle);
 /**
  * @brief Read kernel counters into a destination chain.
  *
- * Only rules with counters enabled are refreshed. Policy and error counters
- * are always refreshed. On failure, the destination may be partially updated.
+ * Only rules with counters enabled are refreshed. Chain counters are always
+ * refreshed. On failure, the destination may be partially updated.
  *
  * @param handle Source BPF handle. Can't be NULL.
  * @param chain Destination chain matching the handle. Can't be NULL.
@@ -209,7 +209,7 @@ int bf_handle_load_counters(const struct bf_handle *handle,
                             struct bf_chain *chain);
 
 /**
- * @brief Transfer rule, policy, and error counters between loaded handles.
+ * @brief Transfer rule and chain counters between loaded handles.
  *
  * @param src Source handle. Can't be NULL.
  * @param dst Destination handle with zeroed counters. Can't be NULL.

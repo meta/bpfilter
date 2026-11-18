@@ -1037,7 +1037,7 @@ static int _bf_codegen_load_counters_map(struct bf_codegen *program)
     r = bf_map_new(&program->handle->cmap, _BF_COUNTER_MAP_NAME,
                    BF_MAP_TYPE_COUNTERS, sizeof(uint32_t),
                    sizeof(struct bf_counter),
-                   bf_list_size(&program->runtime.chain->rules) + 2);
+                   bf_list_size(&program->runtime.chain->rules) + 3);
     if (r)
         return bf_err_r(r, "failed to create the counters bf_map object");
 

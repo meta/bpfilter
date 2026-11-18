@@ -176,14 +176,19 @@ static void copy_resets_chain_counters(void **state)
     assert_non_null(source);
     source->policy_counters = (struct bf_counter) {.count = 1, .size = 64};
     source->error_counters = (struct bf_counter) {.count = 2, .size = 128};
+    source->parser_drop_counters =
+        (struct bf_counter) {.count = 3, .size = 192};
 
     assert_ok(bf_chain_new_from_copy(&copy, source));
     assert_int_equal(copy->policy_counters.count, 0);
     assert_int_equal(copy->policy_counters.size, 0);
     assert_int_equal(copy->error_counters.count, 0);
     assert_int_equal(copy->error_counters.size, 0);
+    assert_int_equal(copy->parser_drop_counters.count, 0);
+    assert_int_equal(copy->parser_drop_counters.size, 0);
     assert_int_equal(source->policy_counters.count, 1);
     assert_int_equal(source->error_counters.count, 2);
+    assert_int_equal(source->parser_drop_counters.count, 3);
 }
 
 static void copy_set_updates_do_not_change_source(void **state)

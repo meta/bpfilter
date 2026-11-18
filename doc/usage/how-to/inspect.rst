@@ -12,7 +12,7 @@ Let's use the chain created in :doc:`block-addresses` as an example:
 
     $ sudo bfcli chain get --name block_sources
     chain block_sources BF_HOOK_TC_INGRESS{ifindex=2} ACCEPT
-        counters policy 8 packets 628 bytes; error 0 packets 0 bytes
+        counters policy 8 packets 628 bytes; error 0 packets 0 bytes; parser-drop 0 packets 0 bytes
         set blocklist (ip4.saddr) in {
             192.0.2.1
             192.0.2.2
@@ -22,7 +22,11 @@ Let's use the chain created in :doc:`block-addresses` as an example:
             counters 3 packets 294 bytes
             DROP
 
-``bfcli`` will print a ``counters`` line for every rule defined with ``counter``, with the number of packets and bytes matched by the rule. The chain also has two counters of its own: one for the packets that reached the policy, and one for the packets it failed to process. If you don't know which rule matches your traffic, print the chain before and after sending it, and see which counter went up.
+``bfcli`` prints a ``counters`` line for every rule defined with ``counter``.
+It shows the number of packets and bytes that matched the rule.
+The chain's ``policy`` counter records packets that reached the policy.
+The ``error`` counter records processing errors.
+Packet hooks display a ``parser-drop`` counter reserved for packets dropped before rule evaluation because they fail parser requirements.
 
 If you want to print all your chains at once, use ``sudo bfcli ruleset get``. Both commands accept ``--no-set-content``, which helps when large sets make the output unreadable.
 
