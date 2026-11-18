@@ -186,6 +186,22 @@ enum bf_elfstub_id
      */
     BF_ELFSTUB_PKT_5_TUPLE_LOG,
 
+    /**
+     * @brief Parse link-layer encapsulation and advance the L3 offset.
+     *
+     * `int bf_parse_l2(struct bf_runtime *ctx, __be16 proto)`
+     *
+     * **Parameters**
+     * - `ctx`: address of the `bf_runtime` context. Its `l3_offset` starts
+     *   just after the Ethernet header and advances on success.
+     * - `proto`: EtherType from the Ethernet header in network byte order.
+     *
+     * **Return** The first EtherType outside the supported encapsulations in
+     *            network byte order, or -1 for a truncated tag or more than
+     *            16 tags.
+     */
+    BF_ELFSTUB_PARSE_L2,
+
     _BF_ELFSTUB_MAX,
 };
 

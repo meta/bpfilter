@@ -118,6 +118,7 @@ bf_target_add_elfstubs(libbpfilter
         "flow_hash"
         "sock_addr_log"
         "pkt_5_tuple_log"
+        "parse_l2"
 )
 
 target_compile_definitions(libbpfilter

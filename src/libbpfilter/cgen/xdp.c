@@ -24,9 +24,6 @@
 /**
  * Generate XDP program prologue.
  *
- * @warning @ref bf_stub_parse_l2_ethhdr will check for L3 protocol. If L3 is
- * not IPv4, the program will be terminated.
- *
  * @param program Program to generate the prologue for. Must not be NULL.
  * @return 0 on success, or negative errno value on error.
  */
