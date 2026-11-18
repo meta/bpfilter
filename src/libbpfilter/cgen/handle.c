@@ -543,14 +543,23 @@ int bf_handle_load_counters(const struct bf_handle *handle,
     }
 
     r = bf_handle_get_counter(handle, n_rules, &chain->policy_counters);
-    if (r)
+    if (r) {
         return bf_err_r(r, "failed to load policy counters for '%s'",
                         chain->name);
+    }
 
     r = bf_handle_get_counter(handle, n_rules + 1, &chain->error_counters);
-    if (r)
+    if (r) {
         return bf_err_r(r, "failed to load error counters for '%s'",
                         chain->name);
+    }
+
+    r = bf_handle_get_counter(handle, n_rules + 2,
+                              &chain->parser_drop_counters);
+    if (r) {
+        return bf_err_r(r, "failed to load parser-drop counters for '%s'",
+                        chain->name);
+    }
 
     return 0;
 }
@@ -566,8 +575,8 @@ int bf_handle_copy_counters(const struct bf_handle *src, struct bf_handle *dst,
     if (!src->cmap || !dst->cmap)
         return bf_err_r(-ENOENT, "missing counter map for counter transfer");
 
-    // n_rules entries for rules, +1 for policy, +1 for errors.
-    for (uint32_t i = 0; i < n_rules + 2; ++i) {
+    // The policy, error, and parser-drop counters follow the rule counters.
+    for (uint32_t i = 0; i < n_rules + 3; ++i) {
         struct bf_counter counter;
 
         r = bf_handle_get_counter(src, i, &counter);

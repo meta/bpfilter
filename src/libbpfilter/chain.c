@@ -511,6 +511,12 @@ void bf_chain_dump(const struct bf_chain *chain, prefix_t *prefix)
     DUMP(prefix, "size: %lu", chain->error_counters.size);
     bf_dump_prefix_pop(prefix);
 
+    DUMP(prefix, "parser_drop_counters: struct bf_counter");
+    bf_dump_prefix_push(prefix);
+    DUMP(prefix, "count: %lu", chain->parser_drop_counters.count);
+    DUMP(prefix, "size: %lu", chain->parser_drop_counters.size);
+    bf_dump_prefix_pop(prefix);
+
     bf_dump_prefix_pop(prefix);
 }
 
