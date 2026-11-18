@@ -193,8 +193,11 @@ Enable kernel tests
 ~~~~~~~~~~~~~~~~~~~
 
 You will need virtme-ng, QEMU, the dependencies to :doc:`build bpfilter <build>`,
-and the tools to build a kernel. Use a clone of the Linux stable repository,
-with ``origin`` pointing to that repository:
+and the tools to build a kernel. BTF generation requires ``pahole``, provided
+by the ``dwarves`` package on Fedora. Generating module-signing certificates
+requires the ``openssl`` command, provided by Fedora's ``openssl`` package.
+The ``openssl-devel`` package alone does not provide this command.
+Use a clone of the Linux stable repository, with ``origin`` pointing to it:
 
 .. code-block:: shell
 
