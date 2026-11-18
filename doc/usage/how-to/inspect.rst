@@ -26,7 +26,9 @@ Let's use the chain created in :doc:`block-addresses` as an example:
 It shows the number of packets and bytes that matched the rule.
 The chain's ``policy`` counter records packets that reached the policy.
 The ``error`` counter records processing errors.
-Packet hooks display a ``parser-drop`` counter reserved for packets dropped before rule evaluation because they fail parser requirements.
+Packet hooks display a ``parser-drop`` counter for packets dropped before rule evaluation because they fail parser requirements.
+On XDP and TC, bpfilter parses up to 16 in-frame 802.1Q or 802.1ad tags.
+It drops and counts frames with a truncated VLAN tag or more than 16 tags.
 
 If you want to print all your chains at once, use ``sudo bfcli ruleset get``. Both commands accept ``--no-set-content``, which helps when large sets make the output unreadable.
 

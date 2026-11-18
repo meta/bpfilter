@@ -104,6 +104,8 @@ int bf_stub_make_ctx_skb_dynptr(struct bf_codegen *program, int skb_reg)
 
 int bf_stub_parse_l2_ethhdr(struct bf_codegen *program)
 {
+    struct bf_jmpctx ipv4;
+    struct bf_jmpctx ipv6;
     int ret_code;
     int r;
 
@@ -157,6 +159,41 @@ int bf_stub_parse_l2_ethhdr(struct bf_codegen *program)
     // Set bf_runtime.l3_offset
     EMIT(program, BPF_ST_MEM(BPF_W, BPF_REG_10, BF_PROG_CTX_OFF(l3_offset),
                              sizeof(struct ethhdr)));
+
+    // Send untagged IP directly to L3 parsing.
+    ipv4 = bf_jmpctx_get(program,
+                         BPF_JMP_IMM(BPF_JEQ, BPF_REG_7, htobe16(ETH_P_IP), 0));
+    ipv6 = bf_jmpctx_get(
+        program, BPF_JMP_IMM(BPF_JEQ, BPF_REG_7, htobe16(ETH_P_IPV6), 0));
+
+    EMIT(program, BPF_MOV64_REG(BPF_REG_1, BPF_REG_10));
+    EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
+    EMIT(program, BPF_MOV64_REG(BPF_REG_2, BPF_REG_7));
+    EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_PARSE_L2);
+
+    {
+        _clean_bf_jmpctx_ struct bf_jmpctx _ =
+            bf_jmpctx_get(program, BPF_JMP32_IMM(BPF_JNE, BPF_REG_0, -1, 0));
+
+        EMIT(program, BPF_MOV64_REG(BPF_REG_1, BPF_REG_10));
+        EMIT(program, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, BF_PROG_CTX_OFF(arg)));
+        EMIT_LOAD_COUNTERS_FD_FIXUP(program, BPF_REG_2);
+        EMIT(program,
+             BPF_MOV32_IMM(BPF_REG_3,
+                           bf_codegen_parser_drop_counter_idx(program)));
+        EMIT_FIXUP_ELFSTUB(program, BF_ELFSTUB_UPDATE_COUNTERS);
+
+        r = program->runtime.ops->get_verdict(BF_VERDICT_DROP, &ret_code);
+        if (r)
+            return r;
+
+        EMIT(program, BPF_MOV64_IMM(BPF_REG_0, ret_code));
+        EMIT(program, BPF_EXIT_INSN());
+    }
+
+    EMIT(program, BPF_MOV32_REG(BPF_REG_7, BPF_REG_0));
+    bf_jmpctx_cleanup(&ipv4);
+    bf_jmpctx_cleanup(&ipv6);
 
     return 0;
 }

@@ -48,8 +48,11 @@ int bf_stub_make_ctx_skb_dynptr(struct bf_codegen *program, int skb_reg);
  *   program accepts the packet
  * - The header address returned by @c bpf_dynptr_slice is stored in
  *   `bf_runtime.l2_hdr`
- * - The L3 protocol ID (extracted from the ethertype field) is stored in @c r7
- * - The offset of the L3 header is stored in  `bf_runtime.l2_offset`
+ * - Untagged IPv4 and IPv6 bypass the link-layer encapsulation parser.
+ * - Skip up to 16 802.1Q or 802.1ad tags. Drop and count frames with a
+ *   truncated tag or more than 16 tags.
+ * - Store the final EtherType in `r7` and the L3 offset in
+ *   `bf_runtime.l3_offset`.
  *
  * @param program Program to emit instructions into.
  * @return 0 on success, or negative errno value on error.
