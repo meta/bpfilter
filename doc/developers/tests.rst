@@ -182,6 +182,54 @@ Each matcher test is a C++ binary located under ``tests/e2e/matchers/`` that bui
     }
 
 
+Benchmarks
+----------
+
+Benchmarks measure userspace chain operations and the execution of generated
+BPF programs. They use Google Benchmark and are defined in ``tests/benchmarks``.
+Results include execution times and, where available, BPF instruction counts.
+
+Build and run the benchmarks for the current checkout:
+
+.. code-block:: shell
+
+    $ cmake -S . -B build -DWITH_TESTS_BENCHMARKS=ON
+    $ make -C build benchmark
+
+The ``benchmark`` target builds ``bfcli`` and ``benchmark_bin``, runs the suite
+with root privileges, and writes JSON results to
+``build/benchmarks/<gitrev>.json``.
+
+bfbencher
+~~~~~~~~~
+
+``bfbencher`` builds and runs benchmarks across Git revisions, then compares
+their results. It supports local execution and remote benchmark hosts.
+
+Use ``bfbencher`` to compare two commits on a benchmark host:
+
+.. code-block:: shell
+
+    $ python3 -m tests.benchmarks.bfbencher compare origin/main HEAD \
+        --host BENCHMARK_HOST --ssh-key /path/to/private/key
+
+The key authenticates the SSH connection to the benchmark host. ``bfbencher``
+creates a self-contained Git bundle with the selected commits, their history,
+and reachable tags. It uploads the bundle through SFTP and clones it on the
+benchmark host. Results return through the same connection. The benchmark
+host needs Git, the build dependencies, and permission to run the benchmark's
+``sudo`` commands without prompting.
+
+Local runs clone the same bundle locally. Neither mode copies the original
+working tree. ``wip`` includes staged changes, unstaged changes, and untracked
+files that Git does not ignore. A temporary index and object store preserve
+the original repository. Tracked files remain included even if Git ignores
+their paths.
+
+Temporary bundles, checkouts, and build directories are removed after the run.
+Results remain cached locally.
+
+
 Kernel tests
 ------------
 

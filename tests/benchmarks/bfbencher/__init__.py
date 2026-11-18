@@ -16,7 +16,7 @@ import tempfile
 import time
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 
 import diskcache  # type: ignore[import-untyped]
 import git
@@ -27,6 +27,7 @@ import pint
 import rich
 import rich.console
 import rich.table
+from git.exc import GitCommandError
 
 DEFAULT_FIRST_COMMIT_REF = "HEAD~10"
 DEFAULT_LAST_COMMIT_REF = "wip"
@@ -382,9 +383,16 @@ class Executor(ABC):
         self._retry_shas: set[str] = set()
         self._commits: list[git.Commit] = []
         self._renderer = renderer
-        self._source = FilesystemSource(
-            args.sources, self._local_workdir / "bpfilter", renderer
-        )
+
+        try:
+            self._source = BundleSource(
+                args.sources, self._local_workdir / "metadata.git", renderer
+            )
+        except BaseException:
+            self._cache.close()
+            shutil.rmtree(self._local_workdir)
+            raise
+
         self._results = History()
         self._args = args
 
@@ -420,7 +428,7 @@ class Executor(ABC):
 
     @property
     def srcdir(self) -> pathlib.Path:
-        return self._local_workdir / "bpfilter"
+        return self._workdir / "bpfilter"
 
     @property
     def cache(self) -> diskcache.Cache:
@@ -439,7 +447,7 @@ class Executor(ABC):
         return self._workdir
 
     def __enter__(self) -> Executor:
-        self.log(f'Preparing sources from "{self._source.local}"')
+        self.log(f'Preparing sources from "{self._args.sources}"')
 
         self._commits, self._retry_shas = self._source.prepare(
             since=self._args.since,
@@ -453,6 +461,15 @@ class Executor(ABC):
             raise FileNotFoundError
 
         return self
+
+    def _clone_sources(self, bundle: pathlib.Path) -> None:
+        """Use the same isolated checkout for local and remote execution."""
+
+        r = self.run(
+            ["git", "clone", "--quiet", "--no-checkout", str(bundle), str(self.srcdir)]
+        )
+        if r:
+            raise RuntimeError(f"Failed to clone source bundle (exit code: {r})")
 
     def __exit__(self, exc_type, exc_value, traceback):
         self._cache.close()
@@ -507,59 +524,59 @@ class RemoteExecutor(Executor):
     """Executor that runs benchmarks on a remote host via SSH."""
 
     def __enter__(self) -> RemoteExecutor:
-        super().__enter__()
-
-        self.log(f"Connecting to remote host {self._host}")
-        self._remote_workdir = self._workdir
+        self._remote_workdir = pathlib.Path("/tmp") / self._workdir.name
+        self._workdir = self._remote_workdir
+        self._remote_created = False
         self._agent: paramiko.Agent | None = None
-
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.WarningPolicy())
 
-        if self._args.ssh_key:
-            self._client.connect(
-                self._host,
-                username=DEFAULT_USERNAME,
-                key_filename=str(self._args.ssh_key.expanduser()),
-                allow_agent=False,
-                look_for_keys=False,
-            )
-        else:
-            self._agent = paramiko.Agent()
-            for key in self._agent.get_keys():
-                if self._host.lower() in key.comment.lower():
-                    pkey = key
-                    break
+        try:
+            super().__enter__()
+            self.log(f"Connecting to remote host {self._host}")
+
+            if self._args.ssh_key:
+                self._client.connect(
+                    self._host,
+                    username=DEFAULT_USERNAME,
+                    key_filename=str(self._args.ssh_key.expanduser()),
+                    allow_agent=False,
+                    look_for_keys=False,
+                )
             else:
-                raise RuntimeError(f"No SSH agent key found matching '{self._host}'")
+                self._agent = paramiko.Agent()
+                for key in self._agent.get_keys():
+                    if self._host.lower() in key.comment.lower():
+                        pkey = key
+                        break
+                else:
+                    raise RuntimeError(f"No SSH agent key found matching '{self._host}'")
 
-            self._client.connect(
-                self._host,
-                username=DEFAULT_USERNAME,
-                pkey=pkey,
-                allow_agent=False,
-            )
+                self._client.connect(
+                    self._host,
+                    username=DEFAULT_USERNAME,
+                    pkey=pkey,
+                    allow_agent=False,
+                )
 
-        # From now on, all self.run() commands are run on the remote host
-        self.run(["hostname"])
+            # Commands and build paths now refer to the remote filesystem.
+            self.run(["hostname"])
+            r = self.run(["mkdir", "-m", "700", "--", str(self._remote_workdir)])
+            if r:
+                raise RuntimeError(f"Failed to create remote workdir (exit code: {r})")
+            self._remote_created = True
 
-        self.run(["mkdir", "-p", str(self._remote_workdir)])
-        r = self.run(
-            [
-                "sshfs",
-                f"{DEFAULT_USERNAME}@{DEFAULT_HOST[0]}:{self._local_workdir}",
-                str(self._remote_workdir),
-                "-C",
-                "-o",
-                "allow_other,default_permissions,exec,user,identityfile=~/.ssh/id_ed25519",
-            ]
-        )
-        if r:
-            raise RuntimeError(
-                f"Failed to mount local workdir on remote host (sshfs exit code: {r})"
-            )
+            self.log("Uploading source bundle")
+            bundle = self._source.bundle
+            remote_bundle = self._remote_workdir / bundle.name
+            with self._client.open_sftp() as sftp:
+                sftp.put(str(bundle), str(remote_bundle))
+            self._clone_sources(remote_bundle)
 
-        return self
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
 
     def _run(self, cmd: list[str], timeout: int | None = None) -> int:
         transport = self._client.get_transport()
@@ -589,16 +606,28 @@ class RemoteExecutor(Executor):
         return channel.exit_status
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.run(["umount", "-l", str(self._remote_workdir)])
-        self.run(["rm", "-rf", str(self._remote_workdir)])
-        self._client.close()
-        if self._agent:
-            self._agent.close()
-        super().__exit__(exc_type, exc_value, traceback)
+        try:
+            transport = self._client.get_transport()
+            if self._remote_created and transport is not None and transport.is_active():
+                self.run(["rm", "-rf", "--", str(self._remote_workdir)])
+        finally:
+            self._client.close()
+            if self._agent:
+                self._agent.close()
+            super().__exit__(exc_type, exc_value, traceback)
 
 
 class LocalExecutor(Executor):
     """Executor that runs benchmarks on the local host."""
+
+    def __enter__(self) -> LocalExecutor:
+        try:
+            super().__enter__()
+            self._clone_sources(self._source.bundle)
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
 
     def _run(self, cmd: list[str], timeout: int | None = None) -> int:
         p = subprocess.Popen(
@@ -635,50 +664,25 @@ class LocalExecutor(Executor):
         return p.returncode if p.returncode is not None else 1
 
 
-def ignore_gitignored(root: pathlib.Path) -> Callable[[str, list[str]], set[str]]:
-    """Return a shutil.copytree ignore callable for the paths git ignores.
-
-    Ignored directories, such as build trees, can be large or contain
-    symlink loops, and the benchmarks don't need them.
-
-    Args:
-        root: Directory that copytree copies. Must be inside a git
-            repository.
-    """
-
-    output = git.Git(root).ls_files(
-        "--others", "--ignored", "--exclude-standard", "--directory", "-z"
-    )
-    ignored = {path.rstrip("/") for path in output.split("\0") if path}
-
-    def ignore(directory: str, names: list[str]) -> set[str]:
-        prefix = pathlib.Path(directory).relative_to(root)
-        return {name for name in names if (prefix / name).as_posix() in ignored}
-
-    return ignore
-
-
-class FilesystemSource:
-    """Manages source repository for benchmarking, including WIP commits."""
+class BundleSource:
+    """Prepare commit metadata and a bundle without copying the working tree."""
 
     def __init__(
         self,
         path: str,
-        local_src_dir: pathlib.Path,
+        metadata_dir: pathlib.Path,
         renderer: Renderer | None = None,
     ) -> None:
-        self._path = pathlib.Path(path)
-        self._local = local_src_dir
+        self._original = git.Repo(path)
+        self._repo = git.Repo.init(metadata_dir, bare=True)
         self._renderer = renderer
+        self.bundle = metadata_dir.parent / "sources.bundle"
 
-        shutil.copytree(
-            self._path,
-            self._local,
-            ignore=ignore_gitignored(self._path),
-            dirs_exist_ok=True,
-        )
-        self._detach_if_worktree()
-        self._repo: git.Repo = git.Repo(self._local)
+        # Read existing objects in place. New WIP objects stay in this store.
+        objects = pathlib.Path(self._repo.git_dir) / "objects"
+        original_objects = pathlib.Path(self._original.common_dir).resolve() / "objects"
+        (objects / "info" / "alternates").write_text(str(original_objects) + "\n")
+
         self._retry_all: bool = False
         self._retry_failed: bool = False
         self._resolved: dict[str, str] = {}
@@ -686,59 +690,12 @@ class FilesystemSource:
     def _log(self, msg: str) -> None:
         (self._renderer or renderer).log(msg)
 
-    def _detach_if_worktree(self) -> None:
-        """Convert a copied git worktree into a standalone repository.
-
-        In a git worktree the .git entry is a file containing a gitdir pointer
-        to the original repo's worktree-specific state. shutil.copytree copies
-        that file verbatim, so all git operations on the copy would mutate the
-        original worktree's HEAD and index. Detect that case and replace the
-        .git file with a self-contained .git directory built from the
-        worktree-specific state (HEAD, index) and the shared commondir
-        (objects, refs, config, ...).
-        """
-        git_entry = self._local / ".git"
-        if not git_entry.is_file():
-            return
-
-        content = git_entry.read_text().strip()
-        if not content.startswith("gitdir:"):
-            return
-
-        wt_gitdir = pathlib.Path(content.split(":", 1)[1].strip())
-        if not wt_gitdir.is_absolute():
-            wt_gitdir = (self._local / wt_gitdir).resolve()
-
-        commondir_file = wt_gitdir / "commondir"
-        if commondir_file.exists():
-            commondir = (wt_gitdir / commondir_file.read_text().strip()).resolve()
-        else:
-            commondir = wt_gitdir
-
-        git_entry.unlink()
-        shutil.copytree(commondir, self._local / ".git")
-
-        # Drop worktrees/: entries are specific to the original repo.
-        worktrees_dir = self._local / ".git" / "worktrees"
-        if worktrees_dir.exists():
-            shutil.rmtree(worktrees_dir)
-
-        # Apply this worktree's HEAD and index, which differ from the main
-        # worktree's equivalents.
-        for fname in ("HEAD", "index"):
-            src = wt_gitdir / fname
-            if src.exists():
-                shutil.copy2(src, self._local / ".git" / fname)
-
-    @property
-    def local(self) -> pathlib.Path:
-        """Local path to the source repository copy."""
-        return self._local
-
     def _rev_parse(self, ref: str) -> str:
         """Resolve `ref` to a SHA and cache the result."""
-        sha: str = self._repo.git.rev_parse(ref)
+
+        sha: str = self._original.git.rev_parse(ref)
         self._resolved[ref] = sha
+
         return sha
 
     def resolve(self, ref: str) -> str:
@@ -763,12 +720,36 @@ class FilesystemSource:
         return self._resolved.get(ref) or self._rev_parse(ref)
 
     def _commit_wip(self) -> git.Commit:
-        """Commit uncommitted changes as WIP and return the commit."""
-        if self._repo.is_dirty(untracked_files=True):
-            self._log("Committing uncommitted changes as WIP")
-            self._repo.git.add(A=True)
-            self._repo.index.commit("bfbencher: WIP")
-        return self._repo.head.commit
+        """Snapshot WIP using an isolated index and object store."""
+
+        head = self._original.head.commit
+        if self._original.bare:
+            return self._repo.commit(head.hexsha)
+
+        metadata = pathlib.Path(self._repo.git_dir)
+        index = pathlib.Path(self._original.index.path)
+        if index.exists():
+            shutil.copyfile(index, metadata / "index")
+
+        with self._original.git.custom_environment(
+            GIT_INDEX_FILE=str(metadata / "index"),
+            GIT_OBJECT_DIRECTORY=str(metadata / "objects"),
+            GIT_OPTIONAL_LOCKS="0",
+        ):
+            if not index.exists():
+                self._original.git(c="core.splitIndex=false").read_tree(head.hexsha)
+
+            # Preserve staged entries and sparse-checkout flags, but don't
+            # create shared index files in the original Git directory.
+            self._original.git(c="core.splitIndex=false").add(A=True)
+            tree = self._original.git(c="core.splitIndex=false").write_tree()
+            if tree == head.tree.hexsha:
+                return self._repo.commit(head.hexsha)
+
+            self._log("Preparing uncommitted changes as WIP")
+            sha = self._original.git.commit_tree(tree, p=head.hexsha, m="bfbencher: WIP")
+
+        return self._repo.commit(sha)
 
     def prepare(
         self,
@@ -809,21 +790,14 @@ class FilesystemSource:
             if ref in ("all", "failed"):
                 continue
             try:
-                retry_shas.add(self._repo.git.rev_parse(ref))
-            except git.exc.GitCommandError:
+                retry_shas.add(self._rev_parse(ref))
+            except GitCommandError:
                 self._log(f"Warning: could not resolve retry ref '{ref}'")
 
-        # Handle uncommitted changes
-        if self._repo.is_dirty(untracked_files=True):
-            if has_wip:
-                self._commit_wip()
-            else:
-                self._log("Discarding uncommitted changes in source directory")
-                self._repo.git.reset("--hard", "HEAD")
-                self._repo.git.clean("-fd")
-
-        # Resolve refs (wip -> HEAD which now points to the WIP commit)
-        self._resolved["wip"] = self._repo.head.commit.hexsha
+        # Work only in the temporary index/object store. Committed-only runs
+        # don't need to inspect or discard any working-tree changes.
+        wip = self._commit_wip() if has_wip else self._original.head.commit
+        self._resolved["wip"] = wip.hexsha
         since_ref = since_sha or self._resolved["wip"]
         until_ref = until_sha or self._resolved["wip"]
 
@@ -865,6 +839,31 @@ class FilesystemSource:
             )
         else:
             self._log(f"Found {len(commits)} commits ({since_ref}..{until_ref})")
+
+        if not commits:
+            return commits, retry_shas
+
+        # Advertise only the selected commits and tags reachable from them.
+        # The bundle includes their complete history, so cloning needs no
+        # access to the original object store or any network remote.
+        tags: dict[str, str] = {}
+        with self._original.git.custom_environment(
+            GIT_OBJECT_DIRECTORY=str(pathlib.Path(self._repo.git_dir) / "objects")
+        ):
+            for i, commit in enumerate(commits):
+                self._repo.git.update_ref(f"refs/heads/bfbencher/{i}", commit.hexsha)
+                refs = self._original.git.for_each_ref(
+                    "refs/tags",
+                    merged=commit.hexsha,
+                    format="%(refname) %(objectname)",
+                )
+                tags.update(line.split(" ", 1) for line in refs.splitlines())
+
+        for ref, sha in tags.items():
+            self._repo.git.update_ref(ref, sha)
+
+        self._repo.git.symbolic_ref("HEAD", "refs/heads/bfbencher/0")
+        self._repo.git.bundle("create", str(self.bundle), "--all")
 
         return commits, retry_shas
 
@@ -918,11 +917,19 @@ class BenchmarkContext:
         self._commit: git.Commit = commit
 
     def __enter__(self) -> "BenchmarkContext":
-        self._executor._source.repo.git.checkout(self._commit)
+        r = self._executor.run(
+            [
+                "git", "-C", str(self.source_dir), "checkout", "--quiet", "--detach",
+                self._commit.hexsha,
+            ]
+        )
+        if r:
+            raise RuntimeError(f"Failed to check out commit (exit code: {r})")
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        return True
+        return False
 
     @property
     def short_commit_sha(self) -> str:
@@ -943,7 +950,7 @@ class BenchmarkContext:
 
     @property
     def source_dir(self) -> pathlib.Path:
-        return self._executor.work_dir / "bpfilter"
+        return self._executor.srcdir
 
     @property
     def bfcli_path(self) -> pathlib.Path:
@@ -1025,6 +1032,14 @@ class BenchmarkContext:
 
     @property
     def results(self) -> dict | None:
+        if isinstance(self._executor, RemoteExecutor):
+            with self._executor._client.open_sftp() as sftp:
+                try:
+                    with sftp.open(str(self.results_path)) as results_file:
+                        return json.load(results_file)["benchmarks"]
+                except FileNotFoundError:
+                    return None
+
         if not self.results_path.exists():
             return None
 
