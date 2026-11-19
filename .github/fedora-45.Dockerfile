@@ -1,5 +1,7 @@
-FROM fedora:42
+FROM fedora:45
 
+# Fedora 45 only ships versioned libgit2 packages, hence libgit2_1.9-devel
+# instead of libgit2-devel.
 RUN dnf --disablerepo=* --enablerepo=fedora,updates --nodocs --setopt=install_weak_deps=False -y install \
     autoconf \
     automake \
@@ -23,7 +25,8 @@ RUN dnf --disablerepo=* --enablerepo=fedora,updates --nodocs --setopt=install_we
     lcov \
     libbpf-devel \
     libcmocka-devel \
-    libgit2-devel \
+    libgit2_1.9-devel \
+    libpfm-devel \
     libtool \
     pipx \
     procps-ng \
@@ -31,12 +34,14 @@ RUN dnf --disablerepo=* --enablerepo=fedora,updates --nodocs --setopt=install_we
     python3-dateutil \
     python3-furo \
     python3-GitPython \
-    python3-linuxdoc \
+    python3-pip \
     python3-scapy \
     python3-sphinx \
     sed \
     xxd && \
     dnf clean all -y
 
-RUN pipx install --global ast-grep-cli && \
+# Fedora 45 does not ship python3-linuxdoc, install it from PyPI instead.
+RUN pip install --break-system-packages linuxdoc && \
+    pipx install --global ast-grep-cli && \
     ast-grep --version

@@ -1,4 +1,4 @@
-FROM ubuntu:25.04
+FROM ubuntu:26.10
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     autoconf \
@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libbpf-dev \
     libc-dev \
     libcmocka-dev \
-    libfuzzer-20-dev \
-    libclang-rt-20-dev \
+    libfuzzer-22-dev \
+    libclang-rt-22-dev \
     libgit2-dev \
     libtool \
     linux-tools-common \

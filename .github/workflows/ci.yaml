@@ -33,12 +33,12 @@ jobs:
           - { name: 4-core-ubuntu-arm, arch: arm64 }
         distribution:
           - { name: fedora, version: "rawhide", experimental: true }
+          - { name: fedora, version: "45" }
           - { name: fedora, version: "44" }
           - { name: fedora, version: "43" }
-          - { name: fedora, version: "42" }
           - { name: ubuntu, version: "24.04" }
-          - { name: ubuntu, version: "25.04" }
-          - { name: ubuntu, version: "25.10" }
+          - { name: ubuntu, version: "26.04" }
+          - { name: ubuntu, version: "26.10" }
     runs-on: ["${{ matrix.host.name }}"]
     continue-on-error: ${{ matrix.distribution.experimental || false }}
     name: "Image: ${{ matrix.distribution.name }} ${{ matrix.distribution.version }} (${{ matrix.host.arch}})${{ matrix.distribution.experimental && ' [experimental]' || '' }}"
@@ -74,12 +74,12 @@ jobs:
           - { name: 4-core-ubuntu-arm, arch: arm64 }
         distribution:
           - { name: fedora, version: "rawhide", experimental: true }
+          - { name: fedora, version: "45" }
           - { name: fedora, version: "44" }
           - { name: fedora, version: "43" }
-          - { name: fedora, version: "42" }
           - { name: ubuntu, version: "24.04" }
-          - { name: ubuntu, version: "25.04" }
-          - { name: ubuntu, version: "25.10" }
+          - { name: ubuntu, version: "26.04" }
+          - { name: ubuntu, version: "26.10" }
     runs-on: ["${{ matrix.host.name }}"]
     continue-on-error: ${{ matrix.distribution.experimental || false }}
     container: ghcr.io/meta/bpfilter:${{ matrix.distribution.name }}-${{ matrix.distribution.version }}-${{ matrix.host.arch}}
@@ -102,7 +102,7 @@ jobs:
           - { name: 4-core-ubuntu-arm, arch: arm64 }
     runs-on: ["${{ matrix.host.name }}"]
     container:
-      image: ghcr.io/meta/bpfilter:fedora-44-${{ matrix.host.arch }}
+      image: ghcr.io/meta/bpfilter:fedora-45-${{ matrix.host.arch }}
       options: --privileged
     name: "Test: ${{ matrix.host.arch }}"
     steps:
@@ -188,7 +188,7 @@ jobs:
     if: ${{ !cancelled() && needs.test.result == 'success' && needs.benchmark.result != 'failure' }}
     timeout-minutes: 5
     runs-on: ["8-core-ubuntu"]
-    container: ghcr.io/meta/bpfilter:fedora-44-x64
+    container: ghcr.io/meta/bpfilter:fedora-45-x64
     name: "Documentation"
     steps:
       - name: Checkout bpfilter

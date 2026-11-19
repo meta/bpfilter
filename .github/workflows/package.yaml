@@ -20,6 +20,8 @@ jobs:
           - host: { name: 8-core-ubuntu, arch: x64 }
             chroot: { name: fedora-rawhide-x86_64, experimental: true }
           - host: { name: 8-core-ubuntu, arch: x64 }
+            chroot: { name: fedora-45-x86_64 }
+          - host: { name: 8-core-ubuntu, arch: x64 }
             chroot: { name: fedora-44-x86_64 }
           - host: { name: 8-core-ubuntu, arch: x64 }
             chroot: { name: fedora-43-x86_64 }
@@ -29,6 +31,8 @@ jobs:
             chroot: { name: centos-stream+epel-9-x86_64 }
           - host: { name: 4-core-ubuntu-arm, arch: arm64 }
             chroot: { name: fedora-rawhide-aarch64, experimental: true }
+          - host: { name: 4-core-ubuntu-arm, arch: arm64 }
+            chroot: { name: fedora-45-aarch64 }
           - host: { name: 4-core-ubuntu-arm, arch: arm64 }
             chroot: { name: fedora-44-aarch64 }
           - host: { name: 4-core-ubuntu-arm, arch: arm64 }
@@ -40,7 +44,7 @@ jobs:
     runs-on: ["${{ matrix.host.name }}"]
     continue-on-error: ${{ matrix.chroot.experimental || false }}
     container:
-      image: fedora:44
+      image: fedora:45
       options: --privileged
     name: "Package: ${{ matrix.chroot.name }} (${{ matrix.host.arch }})${{ matrix.chroot.experimental && ' [experimental]' || '' }}"
     steps:
