@@ -54,7 +54,7 @@
  */
 static int _bf_flock(int fd, enum bf_lock_mode mode)
 {
-    int op = LOCK_NB;
+    int op;
 
     if (mode >= _BF_LOCK_MAX)
         return -EINVAL;
@@ -65,7 +65,7 @@ static int _bf_flock(int fd, enum bf_lock_mode mode)
     if (mode == BF_LOCK_NONE)
         return 0;
 
-    op |= (mode == BF_LOCK_WRITE) ? LOCK_EX : LOCK_SH;
+    op = (mode == BF_LOCK_WRITE) ? LOCK_EX | LOCK_NB : LOCK_SH | LOCK_NB;
 
     if (flock(fd, op) < 0)
         return -errno;

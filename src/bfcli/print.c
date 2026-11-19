@@ -432,7 +432,7 @@ static void _bf_chain_log_l2(const struct bf_log *log)
     struct ethhdr *ethhdr = (void *)log->pkt.l2hdr;
     const char *ethertype;
 
-    if (!(log->pkt.headers & (1 << BF_LOG_OPT_LINK))) {
+    if (!(log->pkt.headers & BF_FLAG(BF_LOG_OPT_LINK))) {
         (void)fprintf(stdout, "  Ethernet  : <unknown header>\n");
         return;
     }
@@ -467,7 +467,7 @@ static void _bf_chain_log_l3(const struct bf_log *log)
     char dst_addr[INET6_ADDRSTRLEN];
     const char *protocol;
 
-    if (!(log->pkt.headers & (1 << BF_LOG_OPT_INTERNET))) {
+    if (!(log->pkt.headers & BF_FLAG(BF_LOG_OPT_INTERNET))) {
         (void)fprintf(stdout, "  Internet  : <unknown header>\n");
         return;
     }
@@ -539,7 +539,7 @@ static void _bf_chain_log_l4(const struct bf_log *log)
     struct udphdr *udphdr;
     const char *tcp_flags_str;
 
-    if (!(log->pkt.headers & (1 << BF_LOG_OPT_TRANSPORT))) {
+    if (!(log->pkt.headers & BF_FLAG(BF_LOG_OPT_TRANSPORT))) {
         (void)fprintf(stdout, "  Transport : <unknown header>\n");
         return;
     }
@@ -772,11 +772,11 @@ int bfc_print_log(const struct bf_log *log)
 
     switch (log->log_type) {
     case BF_LOG_TYPE_PACKET:
-        if (log->pkt.req_headers & (1 << BF_LOG_OPT_LINK))
+        if (log->pkt.req_headers & BF_FLAG(BF_LOG_OPT_LINK))
             _bf_chain_log_l2(log);
-        if (log->pkt.req_headers & (1 << BF_LOG_OPT_INTERNET))
+        if (log->pkt.req_headers & BF_FLAG(BF_LOG_OPT_INTERNET))
             _bf_chain_log_l3(log);
-        if (log->pkt.req_headers & (1 << BF_LOG_OPT_TRANSPORT))
+        if (log->pkt.req_headers & BF_FLAG(BF_LOG_OPT_TRANSPORT))
             _bf_chain_log_l4(log);
         break;
     case BF_LOG_TYPE_SOCK_ADDR:

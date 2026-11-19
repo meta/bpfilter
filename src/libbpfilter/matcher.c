@@ -680,7 +680,7 @@ static int _bf_parse_tcp_flags(enum bf_matcher_type type, enum bf_matcher_op op,
         if (r)
             goto err;
 
-        *flags |= (uint8_t)(1 << new_flag);
+        *flags |= (uint8_t)BF_FLAG(new_flag);
 
         tmp = NULL;
     }
@@ -702,8 +702,8 @@ static void _bf_print_tcp_flags(const void *payload)
     uint8_t flag = *(uint8_t *)payload;
 
     for (uint32_t i = 0; i < _BF_TCP_MAX; ++i) {
-        if (flag & (1 << i)) {
-            flag &= ~(1 << i);
+        if (flag & BF_FLAG(i)) {
+            flag &= ~BF_FLAG(i);
             (void)fprintf(stdout, "%s%s", bf_tcp_flag_to_str(i),
                           flag ? "," : "");
         }

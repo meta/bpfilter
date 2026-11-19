@@ -366,34 +366,45 @@ static struct bf_hookopts_ops
     int (*parse)(struct bf_hookopts *, const char *);
     void (*dump)(const struct bf_hookopts *, prefix_t *);
 } _bf_hookopts_ops[] = {
-    [BF_HOOKOPTS_IFINDEX] = {.name = "ifindex",
-                             .type = BF_HOOKOPTS_IFINDEX,
-                             .required_by =
-                                 BF_FLAGS(BF_FLAVOR_XDP, BF_FLAVOR_TC),
-                             .supported_by = 0,
-                             .parse = _bf_hookopts_ifindex_parse,
-                             .dump = _bf_hookopts_ifindex_dump},
-    [BF_HOOKOPTS_CGPATH] = {.name = "cgpath",
-                            .type = BF_HOOKOPTS_CGPATH,
-                            .required_by = BF_FLAGS(BF_FLAVOR_CGROUP_SKB,
-                                                    BF_FLAVOR_CGROUP_SOCK_ADDR),
-                            .supported_by = 0,
-                            .parse = _bf_hookopts_cgpath_parse,
-                            .dump = _bf_hookopts_cgpath_dump},
+    [BF_HOOKOPTS_IFINDEX] =
+        {
+            .name = "ifindex",
+            .type = BF_HOOKOPTS_IFINDEX,
+            .required_by = BF_FLAGS(BF_FLAVOR_XDP, BF_FLAVOR_TC),
+            .supported_by = 0,
+            .parse = _bf_hookopts_ifindex_parse,
+            .dump = _bf_hookopts_ifindex_dump,
+        },
+    [BF_HOOKOPTS_CGPATH] =
+        {
+            .name = "cgpath",
+            .type = BF_HOOKOPTS_CGPATH,
+            .required_by =
+                BF_FLAGS(BF_FLAVOR_CGROUP_SKB, BF_FLAVOR_CGROUP_SOCK_ADDR),
+            .supported_by = 0,
+            .parse = _bf_hookopts_cgpath_parse,
+            .dump = _bf_hookopts_cgpath_dump,
+        },
     /** @deprecated Hook option `family=` is deprecated for Netfilter chains.
      * bpfilter will automatically filter on both the IPv4 and IPv6 families. */
-    [BF_HOOKOPTS_FAMILY] = {.name = "family",
-                            .type = BF_HOOKOPTS_FAMILY,
-                            .required_by = 0,
-                            .supported_by = 0,
-                            .parse = _bf_hookopts_family_parse,
-                            .dump = _bf_hookopts_family_dump},
-    [BF_HOOKOPTS_PRIORITIES] = {.name = "priorities",
-                                .type = BF_HOOKOPTS_PRIORITIES,
-                                .required_by = BF_FLAGS(BF_FLAVOR_NF),
-                                .supported_by = 0,
-                                .parse = _bf_hookopts_priorities_parse,
-                                .dump = _bf_hookopts_priorities_dump},
+    [BF_HOOKOPTS_FAMILY] =
+        {
+            .name = "family",
+            .type = BF_HOOKOPTS_FAMILY,
+            .required_by = 0,
+            .supported_by = 0,
+            .parse = _bf_hookopts_family_parse,
+            .dump = _bf_hookopts_family_dump,
+        },
+    [BF_HOOKOPTS_PRIORITIES] =
+        {
+            .name = "priorities",
+            .type = BF_HOOKOPTS_PRIORITIES,
+            .required_by = BF_FLAGS(BF_FLAVOR_NF),
+            .supported_by = 0,
+            .parse = _bf_hookopts_priorities_parse,
+            .dump = _bf_hookopts_priorities_dump,
+        },
 };
 
 static_assert_enum_mapping(_bf_hookopts_ops, _BF_HOOKOPTS_MAX);

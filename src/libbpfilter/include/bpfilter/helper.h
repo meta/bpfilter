@@ -52,10 +52,10 @@ extern const char *strerrordesc_np(int errnum);
 #define BF_BASE_10 10
 #define BF_BASE_16 16
 
-#define _BF_ALIGNED(addr, mask) (((addr) & (mask)) == 0)
-#define BF_ALIGNED_64(addr) _BF_ALIGNED(addr, 0x07)
-#define BF_ALIGNED_32(addr) _BF_ALIGNED(addr, 0x03)
-#define BF_ALIGNED_16(addr) _BF_ALIGNED(addr, 0x01)
+#define _BF_ALIGNED(addr, mask) (((uint64_t)(addr) & (mask)) == 0)
+#define BF_ALIGNED_64(addr) _BF_ALIGNED(addr, 0x07U)
+#define BF_ALIGNED_32(addr) _BF_ALIGNED(addr, 0x03U)
+#define BF_ALIGNED_16(addr) _BF_ALIGNED(addr, 0x01U)
 
 /**
  * @brief Generate a bitflag from multiple values.
@@ -82,14 +82,14 @@ extern const char *strerrordesc_np(int errnum);
  *
  * @return `1ULL << n` to be used as a flag.
  */
-#define BF_FLAG(n) (1ULL << (n))
+#define BF_FLAG(n) (1ULL << (unsigned int)(n))
 
 /**
  * @brief Generate a bitmask covering all valid flags below `max_value`.
  *
  * @return Mask with bits 0 through max_value-1 set.
  */
-#define BF_FLAGS_MASK(max_value) ((1ULL << (max_value)) - 1)
+#define BF_FLAGS_MASK(max_value) (BF_FLAG(max_value) - 1)
 
 #define bf_packed __attribute__((packed))
 #define bf_aligned(x) __attribute__((aligned(x)))

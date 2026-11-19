@@ -32,7 +32,7 @@ static int _bf_compute_lexer_buf_size(size_t len)
         val = bf_min(bf_max(val - 3, _BF_LEX_MIN_BUF_POW), _BF_LEX_MAX_BUF_POW);
     }
 
-    return 1 << val;
+    return (int)BF_FLAG(val);
 }
 
 int bfc_parse_file(const char *file, struct bfc_ruleset *ruleset)
