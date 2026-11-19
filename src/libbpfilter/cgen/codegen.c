@@ -1037,7 +1037,7 @@ static int _bf_codegen_load_counters_map(struct bf_codegen *program)
     r = bf_map_new(&program->handle->cmap, _BF_COUNTER_MAP_NAME,
                    BF_MAP_TYPE_COUNTERS, sizeof(uint32_t),
                    sizeof(struct bf_counter),
-                   bf_list_size(&program->runtime.chain->rules) + 3);
+                   bf_codegen_parser_drop_counter_idx(program) + 1);
     if (r)
         return bf_err_r(r, "failed to create the counters bf_map object");
 
@@ -1333,4 +1333,9 @@ size_t bf_codegen_chain_counter_idx(const struct bf_codegen *program)
 size_t bf_codegen_error_counter_idx(const struct bf_codegen *program)
 {
     return bf_list_size(&program->runtime.chain->rules) + 1;
+}
+
+size_t bf_codegen_parser_drop_counter_idx(const struct bf_codegen *program)
+{
+    return bf_list_size(&program->runtime.chain->rules) + 2;
 }
