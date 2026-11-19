@@ -130,12 +130,20 @@ add_custom_command(
 
 add_custom_command(
 	COMMAND Doxygen::doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+	# Doxygen 1.18.0 moves the ")" closing a function pointer declarator from
+	# <argsstring> to <type>, so Breathe generates invalid C declarations.
+	# Restore the layout of the other Doxygen releases, see
+	# https://github.com/doxygen/doxygen/pull/12311.
+	COMMAND find ${CMAKE_CURRENT_BINARY_DIR}/xml -name "*.xml" -exec
+		sed -i -z -E [=[s|(<type>[^\n]*)\(\*\)(</type>\n[[:space:]]*<definition>[^\n]*</definition>\n[[:space:]]*<argsstring>)\(|\1(*\2)(|g]=]
+		{} +
 	DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 		${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.base
 		${bf_srcs}
 	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/xml/index.xml
 	COMMENT "Generating Doxygen XML documentation"
+	VERBATIM
 )
 
 add_custom_command(

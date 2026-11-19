@@ -332,7 +332,7 @@ void *bf_list_get_at(const bf_list *list, size_t index);
 /**
  * Returns the first element of the list.
  *
- * A @p bf_list_node object it returned. Use @ref bf_list_node_get_data to
+ * A @p bf_list_node object it returned. Use `bf_list_node_get_data` to
  * get a pointer to the data.
  *
  * @param list Initialised list. Must be non-NULL.
@@ -347,7 +347,7 @@ static inline bf_list_node *bf_list_get_head(const bf_list *list)
 /**
  * Returns the last element of the list.
  *
- * A @p bf_list_node object it returned. Use @ref bf_list_node_get_data to
+ * A @p bf_list_node object it returned. Use `bf_list_node_get_data` to
  * get a pointer to the data.
  *
  * @param list Initialised list. Must be non-NULL.

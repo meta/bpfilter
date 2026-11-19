@@ -174,7 +174,7 @@ enum bf_log_level
  * Initialise the logging system.
  *
  * Defines whether the logging system will print in colors or not. If both
- * `stdout` and `stderr` are TTYs, then @ref _bf_can_print_color is set to true.
+ * `stdout` and `stderr` are TTYs, then `_bf_can_print_color` is set to true.
  */
 void bf_logger_setup(void);
 
@@ -182,7 +182,7 @@ void bf_logger_setup(void);
  * Get color string for a given style.
  *
  * @p style can be a combination of @ref bf_style weight and color. If
- * @ref _bf_can_print_color is set to false, then an empty string will be
+ * `_bf_can_print_color` is set to false, then an empty string will be
  * returned so to not modify the output style.
  *
  * @param color Color identifier.
