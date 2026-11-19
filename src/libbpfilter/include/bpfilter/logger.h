@@ -13,23 +13,23 @@ enum bf_color
 {
     BF_COLOR_RESET = 0,
 
-    BF_COLOR_DEFAULT = 1 << 1,
-    BF_COLOR_BLACK = 1 << 2,
-    BF_COLOR_RED = 1 << 3,
-    BF_COLOR_GREEN = 1 << 4,
-    BF_COLOR_YELLOW = 1 << 5,
-    BF_COLOR_BLUE = 1 << 6,
-    BF_COLOR_MAGENTA = 1 << 7,
-    BF_COLOR_CYAN = 1 << 8,
-    BF_COLOR_LIGHT_GRAY = 1 << 9,
-    BF_COLOR_DARK_GRAY = 1 << 10,
-    BF_COLOR_LIGHT_RED = 1 << 11,
-    BF_COLOR_LIGHT_GREEN = 1 << 12,
-    BF_COLOR_LIGHT_YELLOW = 1 << 13,
-    BF_COLOR_LIGHT_BLUE = 1 << 14,
-    BF_COLOR_LIGHT_MAGENTA = 1 << 15,
-    BF_COLOR_LIGHT_CYAN = 1 << 16,
-    BF_COLOR_WHITE = 1 << 17,
+    BF_COLOR_DEFAULT = BF_FLAG(1),
+    BF_COLOR_BLACK = BF_FLAG(2),
+    BF_COLOR_RED = BF_FLAG(3),
+    BF_COLOR_GREEN = BF_FLAG(4),
+    BF_COLOR_YELLOW = BF_FLAG(5),
+    BF_COLOR_BLUE = BF_FLAG(6),
+    BF_COLOR_MAGENTA = BF_FLAG(7),
+    BF_COLOR_CYAN = BF_FLAG(8),
+    BF_COLOR_LIGHT_GRAY = BF_FLAG(9),
+    BF_COLOR_DARK_GRAY = BF_FLAG(10),
+    BF_COLOR_LIGHT_RED = BF_FLAG(11),
+    BF_COLOR_LIGHT_GREEN = BF_FLAG(12),
+    BF_COLOR_LIGHT_YELLOW = BF_FLAG(13),
+    BF_COLOR_LIGHT_BLUE = BF_FLAG(14),
+    BF_COLOR_LIGHT_MAGENTA = BF_FLAG(15),
+    BF_COLOR_LIGHT_CYAN = BF_FLAG(16),
+    BF_COLOR_WHITE = BF_FLAG(17),
 };
 
 enum bf_style
@@ -69,9 +69,9 @@ enum bf_log_level
 #define _bf_log_impl(level, color, fmt, ...)                                   \
     do {                                                                       \
         if (level >= bf_log_get_level()) {                                     \
-            (void)fprintf(stderr, _bf_logger_prefix_fmt fmt "\n",              \
-                          _bf_logger_prefix_fmt_args(level, color),            \
-                          ##__VA_ARGS__);                                      \
+            (void)fprintf(                                                     \
+                stderr, _bf_logger_prefix_fmt fmt "\n",                        \
+                _bf_logger_prefix_fmt_args(level, color), ##__VA_ARGS__);      \
         }                                                                      \
     } while (0)
 
@@ -119,9 +119,10 @@ enum bf_log_level
     ({                                                                         \
         const int __code = (code);                                             \
         if ((level) >= bf_log_get_level()) {                                   \
-            (void)fprintf(stderr, _bf_logger_prefix_fmt fmt ": %s\n",          \
-                          _bf_logger_prefix_fmt_args(level, color),            \
-                          ##__VA_ARGS__, bf_strerror(__code));                 \
+            (void)fprintf(                                                     \
+                stderr, _bf_logger_prefix_fmt fmt ": %s\n",                    \
+                _bf_logger_prefix_fmt_args(level, color), ##__VA_ARGS__,       \
+                bf_strerror(__code));                                          \
         }                                                                      \
         __code < 0 ? __code : -__code;                                         \
     })

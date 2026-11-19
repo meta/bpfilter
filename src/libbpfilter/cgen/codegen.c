@@ -58,7 +58,7 @@
 #include "filter.h"
 
 #define _BF_LOG_BUF_SIZE                                                       \
-    (UINT32_MAX >> 8) /* verifier maximum in kernels <= 5.1 */
+    (UINT32_MAX >> 8U) /* verifier maximum in kernels <= 5.1 */
 #define _BF_LOG_MAP_N_ENTRIES 1000
 #define _BF_LOG_MAP_SIZE                                                       \
     _bf_round_next_power_of_2(sizeof(struct bf_log) * _BF_LOG_MAP_N_ENTRIES)
@@ -74,13 +74,13 @@ static inline size_t _bf_round_next_power_of_2(size_t value)
         return 1;
 
     value--;
-    value |= value >> 1;
-    value |= value >> 2;
-    value |= value >> 4;
-    value |= value >> 8;
-    value |= value >> 16;
+    value |= value >> 1U;
+    value |= value >> 2U;
+    value |= value >> 4U;
+    value |= value >> 8U;
+    value |= value >> 16U;
 #if SIZE_MAX > 0xFFFFFFFFU
-    value |= value >> 32;
+    value |= value >> 32U;
 #endif
 
     return ++value;

@@ -45,12 +45,12 @@
  *    specified register against the matcher's reference payload.
  */
 
-#define BF_IPV6_EH_HOPOPTS(x) ((x) << 0)
-#define BF_IPV6_EH_ROUTING(x) ((x) << 1)
-#define BF_IPV6_EH_FRAGMENT(x) ((x) << 2)
-#define BF_IPV6_EH_AH(x) ((x) << 3)
-#define BF_IPV6_EH_DSTOPTS(x) ((x) << 4)
-#define BF_IPV6_EH_MH(x) ((x) << 5)
+#define BF_IPV6_EH_HOPOPTS(x) ((unsigned int)(x) << 0U)
+#define BF_IPV6_EH_ROUTING(x) ((unsigned int)(x) << 1U)
+#define BF_IPV6_EH_FRAGMENT(x) ((unsigned int)(x) << 2U)
+#define BF_IPV6_EH_AH(x) ((unsigned int)(x) << 3U)
+#define BF_IPV6_EH_DSTOPTS(x) ((unsigned int)(x) << 4U)
+#define BF_IPV6_EH_MH(x) ((unsigned int)(x) << 5U)
 
 /**
  * @brief Load a packet field from the header into the specified register.
@@ -293,7 +293,7 @@ static int _bf_matcher_pkt_generate_ip4_dscp(struct bf_codegen *program,
 
     EMIT_FIXUP_JMP_NEXT_RULE(program,
                              BPF_JMP_IMM(bf_cmp_get_jmp_ins(matcher), BPF_REG_1,
-                                         (uint8_t)dscp << 2, 0));
+                                         (uint8_t)dscp << 2U, 0));
 
     return 0;
 }
@@ -321,7 +321,7 @@ static int _bf_matcher_pkt_generate_ip6_dscp(struct bf_codegen *program,
 
     EMIT_FIXUP_JMP_NEXT_RULE(program,
                              BPF_JMP_IMM(bf_cmp_get_jmp_ins(matcher), BPF_REG_1,
-                                         (uint16_t)dscp << 6, 0));
+                                         (uint16_t)dscp << 6U, 0));
 
     return 0;
 }

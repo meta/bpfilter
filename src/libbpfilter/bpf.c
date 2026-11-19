@@ -66,7 +66,7 @@ int bf_bpf_prog_load(const char *name, enum bf_bpf_prog_type prog_type,
 
     if (token_fd != -1) {
         attr.prog_token_fd = token_fd;
-        attr.prog_flags |= BPF_F_TOKEN_FD;
+        attr.prog_flags |= (uint32_t)BPF_F_TOKEN_FD;
     }
 
     r = bf_bpf(BF_BPF_PROG_LOAD, &attr);
@@ -206,7 +206,7 @@ int bf_bpf_btf_load(const void *btf_data, size_t btf_data_len, int token_fd)
 
     if (token_fd != -1) {
         attr.btf_token_fd = token_fd;
-        attr.btf_flags |= BPF_F_TOKEN_FD;
+        attr.btf_flags |= (uint32_t)BPF_F_TOKEN_FD;
     }
 
     return bf_bpf(BF_BPF_BTF_LOAD, &attr);
@@ -229,11 +229,11 @@ int bf_bpf_map_create(const char *name, enum bf_bpf_map_type type,
 
     // NO_PREALLOC is *required* for LPM_TRIE map
     if (type == BF_BPF_MAP_TYPE_LPM_TRIE)
-        attr.map_flags |= BPF_F_NO_PREALLOC;
+        attr.map_flags |= (uint32_t)BPF_F_NO_PREALLOC;
 
     if (token_fd != -1) {
         attr.map_token_fd = token_fd;
-        attr.map_flags |= BPF_F_TOKEN_FD;
+        attr.map_flags |= (uint32_t)BPF_F_TOKEN_FD;
     };
 
     if (btf) {

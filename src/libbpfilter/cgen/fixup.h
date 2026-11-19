@@ -43,7 +43,7 @@ enum bf_fixup_type
     BF_FIXUP_TYPE_SET_MAP_FD,
     /// Call an ELF stub.
     BF_FIXUP_ELFSTUB_CALL,
-    _BF_FIXUP_TYPE_MAX
+    _BF_FIXUP_TYPE_MAX,
 };
 
 union bf_fixup_attr

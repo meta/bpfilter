@@ -105,8 +105,7 @@ static int _bf_cgroup_skb_gen_inline_matcher(struct bf_codegen *program,
     assert(program);
     assert(matcher);
 
-    switch (bf_matcher_get_type(matcher)) {
-    case BF_MATCHER_META_MARK:
+    if (bf_matcher_get_type(matcher) == BF_MATCHER_META_MARK) {
         EMIT(program,
              BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_10, BF_PROG_CTX_OFF(arg)));
         EMIT(program, BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_1,
@@ -114,9 +113,9 @@ static int _bf_cgroup_skb_gen_inline_matcher(struct bf_codegen *program,
 
         return bf_cmp_value(program, matcher, bf_matcher_payload(matcher), 4,
                             BPF_REG_1);
-    default:
-        return bf_packet_gen_inline_matcher(program, matcher);
     }
+
+    return bf_packet_gen_inline_matcher(program, matcher);
 }
 
 /**

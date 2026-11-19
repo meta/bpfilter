@@ -203,7 +203,7 @@ static inline bool bf_rule_mark_is_set(const struct bf_rule *rule)
 {
     assert(rule);
 
-    return rule->mark >> 32;
+    return rule->mark >> 32U;
 }
 
 static inline void bf_rule_set_redirect(struct bf_rule *rule, uint32_t ifindex,

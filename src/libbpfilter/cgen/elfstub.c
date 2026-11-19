@@ -126,12 +126,11 @@ static int _bf_elfstub_prepare(struct bf_elfstub *stub,
         if (shdrs[i].sh_type != SHT_REL)
             continue;
 
-        // Check if this relocation section applies to .text
-        if (shdrs[i].sh_info != 0) {
-            // sh_info contains the section index this relocation applies to
-            if (!bf_streq(&strtab[shdrs[shdrs[i].sh_info].sh_name], ".text"))
-                continue;
-        }
+        /* Check if this relocation section applies to .text. sh_info contains
+         * the section index this relocation applies to. */
+        if (shdrs[i].sh_info != 0 &&
+            !bf_streq(&strtab[shdrs[shdrs[i].sh_info].sh_name], ".text"))
+            continue;
 
         // REL relocations (no addend)
         Elf64_Rel *rels = (Elf64_Rel *)(raw->elf + shdrs[i].sh_offset);
@@ -150,12 +149,13 @@ static int _bf_elfstub_prepare(struct bf_elfstub *stub,
                         return bf_err_r(id, "function %s not found", name);
 
                     size_t idx = rels[j].r_offset / 8;
-                    stub->insns[idx] =
-                        ((struct bpf_insn) {.code = BPF_JMP | BPF_CALL,
-                                            .dst_reg = 0,
-                                            .src_reg = BPF_PSEUDO_KFUNC_CALL,
-                                            .off = 0,
-                                            .imm = id});
+                    stub->insns[idx] = ((struct bpf_insn) {
+                        .code = BPF_JMP | BPF_CALL,
+                        .dst_reg = 0,
+                        .src_reg = BPF_PSEUDO_KFUNC_CALL,
+                        .off = 0,
+                        .imm = id,
+                    });
 
                     bf_dbg("updated stub to call '%s' from instruction %lu",
                            name, idx);

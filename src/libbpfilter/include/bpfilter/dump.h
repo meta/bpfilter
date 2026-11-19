@@ -16,7 +16,7 @@
  * @param fmt Log format string.
  * @param ... Variadic argument list for @p fmt.
  */
-#define DUMP(p, fmt, ...) bf_dbg("%s" fmt, (*p), ##__VA_ARGS__);
+#define DUMP(p, fmt, ...) bf_dbg("%s" fmt, (*p), ##__VA_ARGS__)
 
 /**
  * Split 32 bits IPv4 representation into four 8 bits components.

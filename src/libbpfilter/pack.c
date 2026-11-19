@@ -32,7 +32,7 @@ static void _bf_wpack_writer_flush_cb(mpack_writer_t *writer,
         size_t new_cap = pack->data_cap ?: 64;
 
         while (new_cap <= pack->data_len + count)
-            new_cap <<= 1;
+            new_cap <<= 1U;
 
         r = bf_realloc(&pack->data, new_cap);
         if (r) {

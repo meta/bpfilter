@@ -71,7 +71,7 @@ static inline uint64_t _bf_read_u64(const void *ptr)
 static int _bf_cmp_build_imm64(struct bf_codegen *program, int dst_reg,
                                int scratch_reg, uint64_t data)
 {
-    EMIT(program, BPF_MOV32_IMM(dst_reg, (uint32_t)(data >> 32)));
+    EMIT(program, BPF_MOV32_IMM(dst_reg, (uint32_t)(data >> 32U)));
     EMIT(program, BPF_ALU64_IMM(BPF_LSH, dst_reg, 32));
     EMIT(program, BPF_MOV32_IMM(scratch_reg, (uint32_t)data));
     EMIT(program, BPF_ALU64_REG(BPF_OR, dst_reg, scratch_reg));
@@ -94,7 +94,7 @@ static void _bf_prefix_to_mask(unsigned int prefixlen, uint8_t *mask,
     memset(mask, 0x00, mask_len);
     memset(mask, 0xff, prefixlen / 8);
     if (prefixlen % 8)
-        mask[prefixlen / 8] = (0xff << (8 - (prefixlen % 8))) & 0xff;
+        mask[prefixlen / 8] = (0xffU << (8 - (prefixlen % 8))) & 0xffU;
 }
 
 int bf_cmp_value(struct bf_codegen *program, const struct bf_matcher *matcher,
@@ -243,7 +243,7 @@ int bf_cmp_masked_value(struct bf_codegen *program,
         _bf_prefix_to_mask(prefixlen, mask, 16);
 
         // Apply mask to loaded reg/reg+1 if not a full /128
-        if (mask[_BF_MASK_LAST_BYTE] != (uint8_t)~0) {
+        if (mask[_BF_MASK_LAST_BYTE] != UINT8_MAX) {
             r = _bf_cmp_build_imm64(program, BPF_REG_3, BPF_REG_4,
                                     _bf_read_u64(mask));
             if (r)

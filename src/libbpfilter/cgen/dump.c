@@ -40,7 +40,7 @@ static void _bf_print_insn(void *private_data, const char *fmt, ...)
     (void)fprintf(stderr, "%s%-7s%s: %s %4ld: ",
                   bf_logger_get_color(BF_COLOR_BLUE, BF_STYLE_BOLD), "debug",
                   bf_logger_get_color(BF_COLOR_RESET, BF_STYLE_RESET),
-                  *(bfdd->prefix), bfdd->idx);
+                  *bfdd->prefix, bfdd->idx);
     (void)vfprintf(stderr, fmt,
                    args); // NOLINT(clang-analyzer-valist.Uninitialized)
     va_end(args);

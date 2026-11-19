@@ -104,8 +104,9 @@ enum bf_log_opt
 
 /** Log all available packet headers. */
 #define BF_LOG_PACKET_HEADERS                                                  \
-    ((1ULL << BF_LOG_OPT_LINK) | (1ULL << BF_LOG_OPT_INTERNET) |               \
-     (1ULL << BF_LOG_OPT_TRANSPORT))
+    ((1ULL << (unsigned int)BF_LOG_OPT_LINK) |                                 \
+     (1ULL << (unsigned int)BF_LOG_OPT_INTERNET) |                             \
+     (1ULL << (unsigned int)BF_LOG_OPT_TRANSPORT))
 
 /**
  * @brief Log entry type discriminator.
@@ -149,7 +150,7 @@ struct bf_log_pkt
 };
 
 /** Source address field was captured. */
-#define BF_LOG_SOCK_ADDR_SADDR (1U << 0)
+#define BF_LOG_SOCK_ADDR_SADDR (1U << 0U)
 
 /**
  * @brief Socket address log payload fields (cgroup_sock_addr).
