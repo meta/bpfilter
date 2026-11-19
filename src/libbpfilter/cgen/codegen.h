@@ -329,3 +329,4 @@ int bf_codegen_set_counters(struct bf_codegen *program,
 
 size_t bf_codegen_chain_counter_idx(const struct bf_codegen *program);
 size_t bf_codegen_error_counter_idx(const struct bf_codegen *program);
+size_t bf_codegen_parser_drop_counter_idx(const struct bf_codegen *program);
