@@ -41,6 +41,12 @@ static void ip6_nexthdr_eq(void **state)
                             bft::IPv6Fragment {.reserved = 8} / bft::TCP {},
                         test->verdictDrop());
 
+    // TCP after a Fragment header as the first extension header -> DROP
+    bft_assert_prog_run("test_ip6_nexthdr", test->hook(),
+                        bft::Ethernet() / bft::IPv6 {} / bft::IPv6Fragment {} /
+                            bft::TCP {},
+                        test->verdictDrop());
+
     // UDP over IPv6 -> nexthdr=17 -> ACCEPT
     bft_assert_prog_run(
         "test_ip6_nexthdr", test->hook(),
@@ -49,7 +55,7 @@ static void ip6_nexthdr_eq(void **state)
             bft::UDP {.sport = 12345, .dport = 53},
         test->verdictAccept());
 
-    bft_assert_counter_eq("test_ip6_nexthdr", 0, 2, -1);
+    bft_assert_counter_eq("test_ip6_nexthdr", 0, 3, -1);
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_ip6_nexthdr", test->hook(), BF_VERDICT_ACCEPT)
