@@ -133,6 +133,14 @@ struct IPv6HopByHop
 };
 
 /**
+ * @brief IPv6 Destination Options header, same layout as Hop-by-Hop.
+ */
+struct IPv6DstOpts: IPv6HopByHop
+{
+    static constexpr uint8_t ip_proto = 60; // IPPROTO_DSTOPTS
+};
+
+/**
  * @brief IPv6 Fragment header for a single fragment (offset 0, M flag unset).
  */
 struct IPv6Fragment
@@ -230,8 +238,9 @@ struct ICMPv6
 namespace detail
 {
 
-using Header = std::variant<Ethernet, VLAN, IPv4, IPv6, IPv6HopByHop,
-                            IPv6Fragment, TCP, UDP, ICMPv4, ICMPv6>;
+using Header =
+    std::variant<Ethernet, VLAN, IPv4, IPv6, IPv6HopByHop, IPv6DstOpts,
+                 IPv6Fragment, TCP, UDP, ICMPv4, ICMPv6>;
 
 } // namespace detail
 

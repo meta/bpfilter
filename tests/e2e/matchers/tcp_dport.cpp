@@ -3,6 +3,8 @@
  * Copyright (c) 2023 Meta Platforms, Inc. and affiliates.
  */
 
+#include <utility>
+
 #include "Chain.hpp"
 #include "Matcher.hpp"
 #include "Rule.hpp"
@@ -13,10 +15,20 @@ extern "C" {
 #include <bpfilter/bpfilter.h>
 }
 
+static bft::Packet withDstOpts(bft::Packet pkt, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+        pkt = std::move(pkt) / bft::IPv6DstOpts {};
+
+    return pkt;
+}
+
 /**
  * Verify tcp.dport eq matches TCP packets to the configured destination port
  * over both IPv4 and IPv6 and rejects non-matching ports. Also verifies the
- * protocol guard: a UDP packet must not match a TCP rule.
+ * protocol guard: a UDP packet must not match a TCP rule. With 16 IPv6
+ * extension headers the rule still matches, with 17 the packet is dropped and
+ * counted as a parser drop, unless the chain has no L4 matcher.
  */
 static void tcp_dport_eq(void **state)
 {
@@ -99,6 +111,51 @@ static void tcp_dport_eq(void **state)
         test->verdictAccept());
 
     bft_assert_counter_eq("test_tcp_dport", 0, 1, -1);
+
+    // An ip6.nexthdr rule selects the IPv6 parser that stores the headers
+    for (bool store_nexthdr: {false, true}) {
+        _free_bf_chain_ struct bf_chain *got = nullptr;
+        _free_bf_hookopts_ struct bf_hookopts *hookopts = nullptr;
+        auto chain =
+            bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_ACCEPT);
+
+        chain << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                          {bf::Matcher(BF_MATCHER_TCP_DPORT, BF_MATCHER_EQ,
+                                       bft_port_be(80))});
+        if (store_nexthdr) {
+            chain << bf::Rule(
+                BF_VERDICT_ACCEPT, bf_counter(), {},
+                {bf::Matcher(BF_MATCHER_IP6_NEXTHDR, BF_MATCHER_EQ, {6})});
+        }
+        BFT_CHAIN_SET(chain);
+
+        // 16 extension headers -> DROP
+        bft_assert_prog_run("test_tcp_dport", test->hook(),
+                            withDstOpts(bft::Ethernet() / bft::IPv6 {}, 16) /
+                                bft::TCP {.dport = 80},
+                            test->verdictDrop());
+
+        // 17 extension headers -> DROP before the rules, as a parser drop
+        bft_assert_prog_run("test_tcp_dport", test->hook(),
+                            withDstOpts(bft::Ethernet() / bft::IPv6 {}, 17) /
+                                bft::TCP {.dport = 80},
+                            test->verdictDrop());
+
+        bft_assert_counter_eq("test_tcp_dport", 0, 1, -1);
+        assert_ok(bf_chain_get("test_tcp_dport", &got, &hookopts));
+        assert_int_equal(got->parser_drop_counters.count, 1);
+    }
+
+    // Without L4 matchers, the rules still apply to 17 extension headers
+    BFT_CHAIN_SET(bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_DROP)
+                  << bf::Rule(BF_VERDICT_ACCEPT, bf_counter(), {},
+                              {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
+                                           bft_ipv6_addr("2001:db8::1"))}));
+
+    bft_assert_prog_run("test_tcp_dport", test->hook(),
+                        withDstOpts(bft::Ethernet() / bft::IPv6 {}, 17) /
+                            bft::TCP {.dport = 80},
+                        test->verdictAccept());
 }
 
 /**

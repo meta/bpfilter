@@ -477,9 +477,9 @@ static void apply_set_delta_updates_derived_state(void **state)
 
     assert_ok(bf_chain_apply_set_delta(chain, "set", delta_set, NULL));
     assert_false(rule->disabled);
-    assert_int_equal(
-        chain->flags,
-        BF_FLAGS(BF_CHAIN_LOG, BF_CHAIN_LOG_RATELIMIT, BF_CHAIN_STORE_NEXTHDR));
+    assert_int_equal(chain->flags,
+                     BF_FLAGS(BF_CHAIN_LOG, BF_CHAIN_LOG_RATELIMIT,
+                              BF_CHAIN_STORE_NEXTHDR, BF_CHAIN_MATCH_L4));
 
     assert_ok(bf_chain_apply_set_delta(chain, "set", NULL, delta_set));
     assert_true(rule->disabled);
@@ -551,7 +551,7 @@ static void validate_rules_uses_current_content(void **state)
     assert_ok(bf_chain_validate_rules(chain));
     assert_false(rule_ref->disabled);
     assert_int_equal(rule_ref->index, 0);
-    assert_int_equal(chain->flags, BF_FLAG(BF_CHAIN_LOG));
+    assert_int_equal(chain->flags, BF_FLAGS(BF_CHAIN_LOG, BF_CHAIN_MATCH_L4));
 }
 
 static void empty_set_only_disables_in_rules(void **state)
@@ -660,6 +660,7 @@ static void incompatible_matchers_disable_rule(void **state)
         assert_ok(bf_chain_new(&chain, "test", BF_HOOK_TC_EGRESS,
                                BF_VERDICT_ACCEPT, NULL, &rules));
         assert_true(rule->disabled);
+        assert_int_equal(chain->flags, 0);
     }
 
     // L3 conflict via set: ip4.daddr set + ip6.daddr matcher.
