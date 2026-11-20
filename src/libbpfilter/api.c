@@ -574,39 +574,48 @@ static int _bf_chain_update(struct bf_lock *lock,
             return bf_err_r(r, "failed to transfer counters");
     }
 
-    // Publication starts here. Preserve the existing recovery behavior.
+    // Publication starts here.
     bf_handle_unpin(old_handle, lock);
 
     if (old_handle->link) {
         r = bf_link_update(old_handle->link, handle->prog_fd);
         if (r) {
             bf_err_r(r, "failed to update link with new program");
-            if (bf_handle_pin(old_handle, lock) < 0)
-                bf_err("failed to repin old handle, ignoring");
-            return r;
+            goto err_restore;
         }
 
         bf_swap(handle->link, old_handle->link);
     }
 
     r = bf_handle_pin(handle, lock);
-    if (r)
-        return bf_err_r(r, "failed to pin new handle");
-
-    // Keep the intermediate old-configuration persistence step unchanged.
-    r = bf_state_persist(lock, old_chain, handle);
     if (r) {
-        bf_handle_unpin(handle, lock);
-        return bf_err_r(r, "failed to persist chain '%s'", old_chain->name);
+        bf_err_r(r, "failed to pin new handle");
+        goto err_restore;
     }
 
     r = bf_state_persist(lock, chain, handle);
     if (r) {
+        bf_err_r(r, "failed to persist chain '%s'", chain->name);
         bf_handle_unpin(handle, lock);
-        return bf_err_r(r, "failed to persist chain '%s'", chain->name);
+        goto err_restore;
     }
 
     return 0;
+
+err_restore:
+    // The persisted state still describes the old handle: restore it.
+    if (handle->link) {
+        int err = bf_link_update(handle->link, old_handle->prog_fd);
+        if (err)
+            bf_err_r(err, "failed to restore the old program on the link");
+
+        bf_swap(old_handle->link, handle->link);
+    }
+
+    if (bf_handle_pin(old_handle, lock) < 0)
+        bf_err("failed to repin old handle, ignoring");
+
+    return r;
 }
 
 int bf_chain_update(const struct bf_chain *chain)
@@ -664,7 +673,6 @@ int bf_chain_update_set(const char *name, const struct bf_set *to_add,
     if (r)
         return r;
 
-    // Publication still needs the old configuration for its first persist.
     r = bf_chain_new_from_copy(&new_chain, old_chain);
     if (r)
         return r;
