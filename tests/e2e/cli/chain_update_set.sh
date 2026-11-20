@@ -274,6 +274,38 @@ echo "$chain_output"
 echo "$chain_output" | grep -q '10.0.0.1'
 echo "$chain_output" | grep -q '10.0.0.2'
 
+# A failed update-set leaves the attached chain and its counters unchanged
+${FROM_NS} ${BFCLI} chain set --from-str "chain test_xdp BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT
+    set blocked_ips (ip4.saddr) in {
+        ${HOST_IP_ADDR}
+    }
+    rule
+        ip4.proto icmp
+        (ip4.saddr) in blocked_ips
+        counter
+        DROP
+"
+
+(! ping -c 1 -W 0.1 ${NS_IP_ADDR})
+# A bf_ctx_tmp directory makes persisting the context fail
+${FROM_NS} mkdir ${WORKDIR}/bpf/bpfilter/test_xdp/bf_ctx_tmp
+(! ${FROM_NS} ${BFCLI} chain update-set \
+    --name test_xdp \
+    --set-name blocked_ips \
+    --remove ${HOST_IP_ADDR})
+
+(! ping -c 1 -W 0.1 ${NS_IP_ADDR})
+test "$(get_counter test_xdp 0)" = "2"
+chain_output=$(${FROM_NS} ${BFCLI} chain get --name test_xdp)
+echo "$chain_output" | grep -q "${HOST_IP_ADDR}"
+
+${FROM_NS} rmdir ${WORKDIR}/bpf/bpfilter/test_xdp/bf_ctx_tmp
+${FROM_NS} ${BFCLI} chain update-set \
+    --name test_xdp \
+    --set-name blocked_ips \
+    --remove ${HOST_IP_ADDR}
+ping -c 1 -W 0.1 ${NS_IP_ADDR}
+
 # Counters are preserved after update-set for both set and non-set rules
 ${FROM_NS} ${BFCLI} chain set --from-str "chain test_xdp BF_HOOK_XDP{ifindex=${NS_IFINDEX}} ACCEPT
     set blocked_ips (ip4.saddr) in {

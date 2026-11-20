@@ -191,10 +191,12 @@ int bf_chain_attach(const char *name, const struct bf_hookopts *hookopts);
  * the operation fails. Caller counters remain unchanged. The replacement
  * starts with zero kernel counters.
  *
- * Preparation failures leave the installed chain intact. A failure while
- * pinning or persisting the updated program can detach the chain and leave
- * state that cannot be restored. In that case, `bf_chain_flush()` also fails.
- * Recovery requires manually removing the chain's bpffs directory.
+ * Preparation failures leave the installed chain intact. If pinning or
+ * persisting the updated program fails, the previous program is restored,
+ * so the installed chain is unchanged. If restoring it fails too, the chain
+ * can keep running the updated program, or be detached and leave state that
+ * cannot be restored. In that case, `bf_chain_flush()` also fails. Recovery
+ * requires manually removing the chain's bpffs directory.
  *
  * @param chain Chain to update. Can't be NULL.
  * @return 0 on success, or a negative errno value on failure, including:
@@ -215,10 +217,12 @@ int bf_chain_update(const struct bf_chain *chain);
  * The operation borrows both delta sets without modifying them or taking
  * ownership. It edits a private candidate and transfers rule, policy, and
  * error counters before publication. Preparation failures leave the
- * installed chain intact. A failure while pinning or persisting the
- * updated program can detach the chain and leave state that cannot be
- * restored. In that case, `bf_chain_flush()` also fails. Recovery requires
- * manually removing the chain's bpffs directory.
+ * installed chain intact. If pinning or persisting the updated program
+ * fails, the previous program is restored, so the installed chain and its
+ * counters are unchanged. If restoring it fails too, the chain can keep
+ * running the updated program, or be detached and leave state that cannot
+ * be restored. In that case, `bf_chain_flush()` also fails. Recovery
+ * requires manually removing the chain's bpffs directory.
  *
  * @param name Name of the chain containing the set. Can't be NULL.
  * @param to_add Set containing elements to add. The set name and key format
