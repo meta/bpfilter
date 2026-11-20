@@ -750,6 +750,15 @@ static int _bf_codegen_generate_rule(struct bf_codegen *program,
         if (r)
             return r;
         break;
+    case BF_VERDICT_REJECT:
+        if (!program->runtime.ops->gen_inline_reject) {
+            return bf_err_r(-ENOTSUP, "reject is not supported by %s hook",
+                            bf_hook_to_str(program->runtime.chain->hook));
+        }
+        r = program->runtime.ops->gen_inline_reject(program, rule->reject_type);
+        if (r)
+            return r;
+        break;
     case BF_VERDICT_CONTINUE:
         // Fall through to next rule or default chain policy.
         break;
@@ -916,6 +925,7 @@ int bf_codegen_emit_fixup_elfstub(struct bf_codegen *program,
 int bf_codegen_generate(struct bf_codegen *program)
 {
     const struct bf_chain *chain = program->runtime.chain;
+    bool has_reject = false;
     int ret_code;
     int r;
 
@@ -963,11 +973,18 @@ int bf_codegen_generate(struct bf_codegen *program)
     }
 
     bf_list_foreach (&chain->rules, rule_node) {
-        r = _bf_codegen_generate_rule(program,
-                                      bf_list_node_get_data(rule_node));
+        struct bf_rule *rule = bf_list_node_get_data(rule_node);
+
+        r = _bf_codegen_generate_rule(program, rule);
         if (r)
             return r;
+
+        if (rule->verdict == BF_VERDICT_REJECT)
+            has_reject = true;
     }
+
+    if (has_reject)
+        bf_warn("chain '%s': REJECT replies are not rate-limited", chain->name);
 
     r = program->runtime.ops->gen_inline_epilogue(program);
     if (r)

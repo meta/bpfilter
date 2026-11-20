@@ -71,7 +71,7 @@ BF_HOOK_[A-Z0-9_]+ { BEGIN(STATE_HOOK_OPTS); yylval.sval = strdup(yytext); retur
     }
 }
     /* Verdicts */
-(ACCEPT|DROP|CONTINUE|NEXT)   { yylval.sval = strdup(yytext); return VERDICT; }
+(ACCEPT|DROP|CONTINUE|NEXT|REJECT) { yylval.sval = strdup(yytext); return VERDICT; }
 REDIRECT                 { BEGIN(STATE_REDIRECT_IFACE); return REDIRECT_TOKEN; }
 <STATE_REDIRECT_IFACE>{
     {int}|[0-9a-zA-Z_-]+ {
