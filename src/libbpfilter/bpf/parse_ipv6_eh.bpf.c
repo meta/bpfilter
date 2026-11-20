@@ -26,7 +26,7 @@ __u8 bf_parse_ipv6(struct bf_runtime *ctx)
         struct ipv6_opt_hdr *ext =
             bpf_dynptr_slice(&ctx->dynptr, ctx->l4_offset, &_ext, sizeof(_ext));
         if (!ext)
-            return 0;
+            return next_hdr_type;
 
         switch (next_hdr_type) {
         case IPPROTO_HOPOPTS:
