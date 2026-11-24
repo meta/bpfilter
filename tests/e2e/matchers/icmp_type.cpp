@@ -25,8 +25,9 @@ static void icmp_type_eq(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_icmp_type", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_ICMP_TYPE, BF_MATCHER_EQ, {8})}));
+        << bf::Rule(BF_VERDICT_DROP,
+                    {bf::Matcher(BF_MATCHER_ICMP_TYPE, BF_MATCHER_EQ, {8})},
+                    bf_counter()));
 
     // ICMP type=8 (echo request) should match the rule -> DROP
     bft_assert_prog_run(
@@ -56,9 +57,10 @@ static void icmp_type_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_icmp_type", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_ICMP_TYPE, BF_MATCHER_EQ,
-                                           {8}, true)}));
+                                           {8}, true)},
+                              bf_counter()));
 
     // ICMP type=8 should not match -> ACCEPT (policy)
     bft_assert_prog_run(
@@ -101,7 +103,7 @@ static void icmp_type_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_icmp_type", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // ICMP type=8 is in set -> DROP
     bft_assert_prog_run(

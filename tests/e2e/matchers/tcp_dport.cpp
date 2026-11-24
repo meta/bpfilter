@@ -23,9 +23,10 @@ static void tcp_dport_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_TCP_DPORT, BF_MATCHER_EQ,
-                                           bft_port_be(80))}));
+                                           bft_port_be(80))},
+                              bf_counter()));
 
     // TCP dport=80 should match -> DROP
     bft_assert_prog_run(
@@ -70,9 +71,10 @@ static void tcp_dport_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_TCP_DPORT, BF_MATCHER_EQ,
-                                           bft_port_be(80), true)}));
+                                           bft_port_be(80), true)},
+                              bf_counter()));
 
     // TCP dport=80 should not match -> ACCEPT
     bft_assert_prog_run(
@@ -115,7 +117,7 @@ static void tcp_dport_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // TCP dport=80 is in set -> DROP
     bft_assert_prog_run(
@@ -155,9 +157,10 @@ static void tcp_dport_range(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_tcp_dport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_TCP_DPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(80, 443))}));
+                                 bft_port_range(80, 443))},
+                    bf_counter()));
 
     // TCP dport=80 is at range minimum -> DROP
     bft_assert_prog_run(

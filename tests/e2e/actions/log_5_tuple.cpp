@@ -53,8 +53,8 @@ static void tupleLogging(void **state)
     (void)state;
 
     BFT_CHAIN_SET(bf::Chain("test_tuple_log", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), kTupleLog,
-                              {bf::Matcher::alwaysMatch()}));
+                  << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::alwaysMatch()},
+                              bf_counter(), kTupleLog));
 
     fd = bf_chain_logs_fd("test_tuple_log");
     assert_true(fd >= 0);
@@ -132,9 +132,8 @@ static void rawLoggingUnchanged(void **state)
         _cleanup_close_ int fd = -1;
 
         BFT_CHAIN_SET(bf::Chain("test_raw_log", hook, BF_VERDICT_ACCEPT)
-                      << bf::Rule(BF_VERDICT_DROP, std::nullopt,
-                                  BF_LOG_OPT_DEFAULT,
-                                  {bf::Matcher::alwaysMatch()}));
+                      << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::alwaysMatch()},
+                                  std::nullopt, BF_LOG_OPT_DEFAULT));
 
         fd = bf_chain_logs_fd("test_raw_log");
         assert_true(fd >= 0);
@@ -178,8 +177,8 @@ static void tupleLogRateEligibility(void **state)
     // Keep the interval below uptime so the first log is eligible in a new VM.
     auto uptime = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch());
-    bf::Rule rule(BF_VERDICT_DROP, bf_counter(), kTupleLog,
-                  {bf::Matcher::alwaysMatch()}, uptime.count() / 2);
+    bf::Rule rule(BF_VERDICT_DROP, {bf::Matcher::alwaysMatch()}, bf_counter(),
+                  kTupleLog, uptime.count() / 2);
 
     (void)state;
 

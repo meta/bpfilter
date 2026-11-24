@@ -24,9 +24,10 @@ static void meta_dport_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_DPORT, BF_MATCHER_EQ,
-                                           bft_port_be(80))}));
+                                           bft_port_be(80))},
+                              bf_counter()));
 
     // TCP dport=80 should match -> DROP
     bft_assert_prog_run(
@@ -73,9 +74,10 @@ static void meta_dport_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_DPORT, BF_MATCHER_EQ,
-                                           bft_port_be(80), true)}));
+                                           bft_port_be(80), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_dport", test->hook(),
@@ -113,9 +115,10 @@ static void meta_dport_range(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_DPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(80, 443))}));
+                                 bft_port_range(80, 443))},
+                    bf_counter()));
 
     // TCP dport=80 is at range minimum -> DROP
     bft_assert_prog_run(
@@ -179,10 +182,10 @@ static void meta_dport_in(void **state)
     auto ip4_set = bf::Set({BF_MATCHER_IP4_DADDR, BF_MATCHER_META_DPORT});
     ip4_set << ip4_elem;
 
-    BFT_CHAIN_SET(bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << ip4_set
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher::in(ip4_set)}));
+    BFT_CHAIN_SET(
+        bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
+        << ip4_set
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(ip4_set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_dport", test->hook(),
@@ -221,10 +224,10 @@ static void meta_dport_in(void **state)
     auto ip6_set = bf::Set({BF_MATCHER_IP6_DADDR, BF_MATCHER_META_DPORT});
     ip6_set << ip6_elem;
 
-    BFT_CHAIN_SET(bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
-                  << ip6_set
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher::in(ip6_set)}));
+    BFT_CHAIN_SET(
+        bf::Chain("test_meta_dport", test->hook(), BF_VERDICT_ACCEPT)
+        << ip6_set
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(ip6_set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_dport", test->hook(),

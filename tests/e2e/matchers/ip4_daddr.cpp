@@ -22,9 +22,10 @@ static void ip4_daddr_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_ip4_daddr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_DADDR, BF_MATCHER_EQ,
-                                           {192, 0, 2, 2})}));
+                                           {192, 0, 2, 2})},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_daddr", test->hook(),
@@ -44,9 +45,10 @@ static void ip4_daddr_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_ip4_daddr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_DADDR, BF_MATCHER_EQ,
-                                           {192, 0, 2, 2}, true)}));
+                                           {192, 0, 2, 2}, true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_daddr", test->hook(),
@@ -81,7 +83,7 @@ static void ip4_daddr_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_daddr", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_daddr", test->hook(),

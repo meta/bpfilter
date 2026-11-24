@@ -23,9 +23,10 @@ static void tcp_sport_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_tcp_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_TCP_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345))}));
+                                           bft_port_be(12345))},
+                              bf_counter()));
 
     // TCP sport=12345 should match -> DROP
     bft_assert_prog_run(
@@ -63,9 +64,10 @@ static void tcp_sport_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_tcp_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_TCP_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345), true)}));
+                                           bft_port_be(12345), true)},
+                              bf_counter()));
 
     // TCP sport=12345 should not match -> ACCEPT
     bft_assert_prog_run(
@@ -108,7 +110,7 @@ static void tcp_sport_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_tcp_sport", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // TCP sport=12345 is in set -> DROP
     bft_assert_prog_run(
@@ -148,9 +150,10 @@ static void tcp_sport_range(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_tcp_sport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_TCP_SPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(1000, 2000))}));
+                                 bft_port_range(1000, 2000))},
+                    bf_counter()));
 
     // TCP sport=1000 is at range minimum -> DROP
     bft_assert_prog_run(
@@ -197,9 +200,10 @@ static void tcp_sport_range(void **state)
     // Try with negation
     BFT_CHAIN_SET(
         bf::Chain("test_tcp_sport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_TCP_SPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(1000, 2000), true)}));
+                                 bft_port_range(1000, 2000), true)},
+                    bf_counter()));
 
     // TCP sport=1500 is in range, but negated -> ACCEPT
     bft_assert_prog_run(

@@ -22,9 +22,10 @@ static void meta_l4_proto_eq(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_meta_l4_proto", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_L4_PROTO, BF_MATCHER_EQ,
-                                 bft_u16_payload(6))}));
+                                 bft_u16_payload(6))},
+                    bf_counter()));
 
     // TCP packet -> l4_proto=6 -> DROP
     bft_assert_prog_run(
@@ -47,9 +48,10 @@ static void meta_l4_proto_eq(void **state)
     // Negation
     BFT_CHAIN_SET(
         bf::Chain("test_meta_l4_proto", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_L4_PROTO, BF_MATCHER_EQ,
-                                 bft_u16_payload(6), true)}));
+                                 bft_u16_payload(6), true)},
+                    bf_counter()));
 
     // TCP -> l4_proto=6 -> not eq does not match -> ACCEPT
     bft_assert_prog_run(

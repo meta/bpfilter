@@ -38,8 +38,7 @@ static void stale_derived_state(void **state)
     auto chain =
         (bf::Chain("test_derived_state", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
          << blocked
-         << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                     {bf::Matcher::in(blocked)}))
+         << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(blocked)}, bf_counter()))
             .get();
     auto *set = const_cast<struct bf_set *>(
         bf_chain_get_set_by_name(chain.get(), "blocked"));
@@ -69,8 +68,8 @@ static void invalid_verdict(void **state)
 {
     auto chain =
         (bf::Chain("test_invalid_verdict", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
-         << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                     {bf::Matcher::alwaysMatch()}))
+         << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::alwaysMatch()},
+                     bf_counter()))
             .get();
 
     (void)state;
@@ -84,7 +83,7 @@ static void invalid_update_preserves_program(void **state)
 {
     auto chain =
         (bf::Chain("test_invalid_update", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
-         << bf::Rule(BF_VERDICT_DROP, std::nullopt, {},
+         << bf::Rule(BF_VERDICT_DROP,
                      {bf::Matcher(BF_MATCHER_IP4_PROTO, BF_MATCHER_EQ, {6})}))
             .get();
     struct bf_rule *rule = first_rule(chain.get());

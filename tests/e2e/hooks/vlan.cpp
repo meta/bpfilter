@@ -45,14 +45,15 @@ static void vlan_depth(void **state)
         const int drop = bft_hook_drop(hook);
 
         assert_ok(bf_ruleset_flush());
-        BFT_CHAIN_SET(
-            bf::Chain(name, hook, BF_VERDICT_ACCEPT)
-            << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                        {bf::Matcher(BF_MATCHER_TCP_DPORT, BF_MATCHER_EQ,
-                                     bft_port_be(80))})
-            << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                        {bf::Matcher(BF_MATCHER_UDP_DPORT, BF_MATCHER_EQ,
-                                     bft_port_be(53))}));
+        BFT_CHAIN_SET(bf::Chain(name, hook, BF_VERDICT_ACCEPT)
+                      << bf::Rule(BF_VERDICT_DROP,
+                                  {bf::Matcher(BF_MATCHER_TCP_DPORT,
+                                               BF_MATCHER_EQ, bft_port_be(80))},
+                                  bf_counter())
+                      << bf::Rule(BF_VERDICT_DROP,
+                                  {bf::Matcher(BF_MATCHER_UDP_DPORT,
+                                               BF_MATCHER_EQ, bft_port_be(53))},
+                                  bf_counter()));
 
         bft_assert_prog_run(name, hook, tcp, drop);
         bft_assert_prog_run(name, hook, udp, drop);

@@ -24,8 +24,9 @@ static void ip6_nexthdr_eq(void **state)
     // IPPROTO_TCP = 6
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_nexthdr", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP6_NEXTHDR, BF_MATCHER_EQ, {6})}));
+        << bf::Rule(BF_VERDICT_DROP,
+                    {bf::Matcher(BF_MATCHER_IP6_NEXTHDR, BF_MATCHER_EQ, {6})},
+                    bf_counter()));
 
     // TCP over IPv6 -> nexthdr=6 -> DROP
     bft_assert_prog_run(
@@ -59,9 +60,10 @@ static void ip6_nexthdr_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_ip6_nexthdr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP6_NEXTHDR,
-                                           BF_MATCHER_EQ, {6}, true)}));
+                                           BF_MATCHER_EQ, {6}, true)},
+                              bf_counter()));
 
     // TCP -> nexthdr=6 -> not eq does not match -> ACCEPT
     bft_assert_prog_run(
@@ -98,7 +100,7 @@ static void ip6_nexthdr_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_nexthdr", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // TCP -> nexthdr=6 in set -> DROP
     bft_assert_prog_run(

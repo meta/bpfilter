@@ -152,8 +152,9 @@ Each matcher test is a C++ binary located under ``tests/e2e/matchers/`` that bui
 
         BFT_CHAIN_SET(
             bf::Chain("test_chain", test->hook(), BF_VERDICT_ACCEPT)
-            << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                        {bf::Matcher(BF_MATCHER_MY_TYPE, BF_MATCHER_EQ, {42})}));
+            << bf::Rule(BF_VERDICT_DROP,
+                        {bf::Matcher(BF_MATCHER_MY_TYPE, BF_MATCHER_EQ, {42})},
+                        bf_counter()));
 
         // Packet matching the rule -> DROP
         bft_assert_prog_run(

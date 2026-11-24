@@ -24,11 +24,11 @@ static void ip6_snet_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     // 2001:db8::/32
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                 bft_ip6_lpm_key(32, "2001:db8::"))}));
+    BFT_CHAIN_SET(bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
+                                           bft_ip6_lpm_key(32, "2001:db8::"))},
+                              bf_counter()));
 
     // saddr=2001:db8::1 is in 2001:db8::/32 -> DROP
     bft_assert_prog_run(
@@ -60,9 +60,10 @@ static void ip6_snet_eq(void **state)
     // bf_cmp_masked_value(), comparing both 64-bit halves directly without AND.
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                 bft_ip6_lpm_key(128, "2001:db8::1"))}));
+                                 bft_ip6_lpm_key(128, "2001:db8::1"))},
+                    bf_counter()));
 
     // saddr=2001:db8::1 exactly matches the /128 -> DROP
     bft_assert_prog_run(
@@ -85,9 +86,10 @@ static void ip6_snet_eq(void **state)
     // /0 (match all): mask=0 causes all addresses to AND to 0, matching any
     // source address.
     BFT_CHAIN_SET(bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                           bft_ip6_lpm_key(0, "::"))}));
+                                           bft_ip6_lpm_key(0, "::"))},
+                              bf_counter()));
 
     // any saddr matches /0 -> DROP
     bft_assert_prog_run(
@@ -102,9 +104,10 @@ static void ip6_snet_eq(void **state)
     // Negation: /32 not eq
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                 bft_ip6_lpm_key(32, "2001:db8::"), true)}));
+                                 bft_ip6_lpm_key(32, "2001:db8::"), true)},
+                    bf_counter()));
 
     // saddr in subnet -> not eq does not match -> ACCEPT
     bft_assert_prog_run(
@@ -129,9 +132,10 @@ static void ip6_snet_eq(void **state)
     // no-masking code path.
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                 bft_ip6_lpm_key(128, "2001:db8::1"), true)}));
+                                 bft_ip6_lpm_key(128, "2001:db8::1"), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_ip6_snet", test->hook(),
@@ -152,9 +156,10 @@ static void ip6_snet_eq(void **state)
     // /0 not eq: /0 covers the entire address space; not eq /0 never
     // matches.
     BFT_CHAIN_SET(bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP6_SNET, BF_MATCHER_EQ,
-                                           bft_ip6_lpm_key(0, "::"), true)}));
+                                           bft_ip6_lpm_key(0, "::"), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip6_snet", test->hook(),
@@ -180,7 +185,7 @@ static void ip6_snet_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_snet", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // saddr=2001:db8::1 matches 2001:db8::/32 in set -> DROP
     bft_assert_prog_run(

@@ -22,9 +22,10 @@ static void ip6_saddr_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
-                                           bft_ipv6_addr("2001:db8::1"))}));
+                                           bft_ipv6_addr("2001:db8::1"))},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip6_saddr", test->hook(),
@@ -50,11 +51,11 @@ static void ip6_saddr_eq(void **state)
     bft_assert_counter_eq("test_ip6_saddr", 0, 2, -1);
 
     // Try with negation
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
-                                 bft_ipv6_addr("2001:db8::1"), true)}));
+    BFT_CHAIN_SET(bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
+                                           bft_ipv6_addr("2001:db8::1"), true)},
+                              bf_counter()));
 
     // saddr=2001:db8::1 matches, but negated -> ACCEPT
     bft_assert_prog_run(
@@ -74,11 +75,11 @@ static void ip6_saddr_eq(void **state)
 
     bft_assert_counter_eq("test_ip6_saddr", 0, 1, -1);
 
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
-                                 bft_ipv6_addr("2001:db8::1"), true)}));
+    BFT_CHAIN_SET(bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP6_SADDR, BF_MATCHER_EQ,
+                                           bft_ipv6_addr("2001:db8::1"), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip6_saddr", test->hook(),
@@ -112,7 +113,7 @@ static void ip6_saddr_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip6_saddr", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_ip6_saddr", test->hook(),

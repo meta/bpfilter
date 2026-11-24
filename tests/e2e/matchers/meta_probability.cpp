@@ -61,9 +61,10 @@ static void _bft_assert_probability_rate(MatcherTest *test, float proba,
 
     BFT_CHAIN_SET(
         bf::Chain("test_meta_prob", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_PROBABILITY, BF_MATCHER_EQ,
-                                 bft_float_payload(proba), negate)}));
+                                 bft_float_payload(proba), negate)},
+                    bf_counter()));
 
     const size_t matches = bft_prog_run_count("test_meta_prob", test->hook(),
                                               pkt, runs, test->verdictDrop());
@@ -126,9 +127,10 @@ static void meta_probability_eq(void **state)
     // 100.0f always matches
     BFT_CHAIN_SET(
         bf::Chain("test_meta_prob", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_PROBABILITY, BF_MATCHER_EQ,
-                                 bft_float_payload(100.0f))}));
+                                 bft_float_payload(100.0f))},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_prob", test->hook(),
@@ -142,9 +144,10 @@ static void meta_probability_eq(void **state)
     // 0.0f is not expected to match on a single run (see above)
     BFT_CHAIN_SET(
         bf::Chain("test_meta_prob", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_PROBABILITY, BF_MATCHER_EQ,
-                                 bft_float_payload(0.0f))}));
+                                 bft_float_payload(0.0f))},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_prob", test->hook(),
@@ -158,9 +161,10 @@ static void meta_probability_eq(void **state)
     // Negated 100.0f should never match
     BFT_CHAIN_SET(
         bf::Chain("test_meta_prob", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_PROBABILITY, BF_MATCHER_EQ,
-                                 bft_float_payload(100.0f), true)}));
+                                 bft_float_payload(100.0f), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_prob", test->hook(),
@@ -174,9 +178,10 @@ static void meta_probability_eq(void **state)
     // Negated 0.0f is expected to match on a single run (see above)
     BFT_CHAIN_SET(
         bf::Chain("test_meta_prob", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_PROBABILITY, BF_MATCHER_EQ,
-                                 bft_float_payload(0.0f), true)}));
+                                 bft_float_payload(0.0f), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_prob", test->hook(),
