@@ -122,6 +122,16 @@ struct ProgRunStats
         duration {stats.duration},
         repeat {static_cast<uint32_t>(stats.repeat)}
     {}
+
+    /**
+     * @brief Get the total duration of the runs, in seconds.
+     *
+     * `duration` is the average duration of a run, in nanoseconds.
+     */
+    [[nodiscard]] double seconds() const
+    {
+        return static_cast<double>(duration) * repeat / 1e9;
+    }
 };
 
 class Program
