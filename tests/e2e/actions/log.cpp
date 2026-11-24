@@ -33,8 +33,8 @@ static void logsFdSurvivesSetUpdate(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_log_update_set", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, std::nullopt, BF_LOG_OPT_DEFAULT,
-                    {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, std::nullopt,
+                    BF_LOG_OPT_DEFAULT));
 
     assert_fd(fd = bf_chain_logs_fd("test_log_update_set"));
     assert_non_null(
@@ -70,8 +70,8 @@ static void logsFdSurvivesEmptySet(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_log_empty_set", BF_HOOK_XDP, BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, std::nullopt, BF_LOG_OPT_DEFAULT,
-                    {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, std::nullopt,
+                    BF_LOG_OPT_DEFAULT));
 
     assert_fd(fd = bf_chain_logs_fd("test_log_empty_set"));
     assert_non_null(

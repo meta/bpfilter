@@ -23,9 +23,10 @@ static void meta_sport_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_meta_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345))}));
+                                           bft_port_be(12345))},
+                              bf_counter()));
 
     // TCP sport=12345 should match -> DROP
     bft_assert_prog_run(
@@ -72,9 +73,10 @@ static void meta_sport_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_meta_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345), true)}));
+                                           bft_port_be(12345), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_sport", test->hook(),
@@ -112,9 +114,10 @@ static void meta_sport_range(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_meta_sport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_META_SPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(1000, 2000))}));
+                                 bft_port_range(1000, 2000))},
+                    bf_counter()));
 
     // TCP sport=1000 is at range minimum -> DROP
     bft_assert_prog_run(
@@ -178,10 +181,10 @@ static void meta_sport_in(void **state)
     auto ip4_set = bf::Set({BF_MATCHER_IP4_SADDR, BF_MATCHER_META_SPORT});
     ip4_set << ip4_elem;
 
-    BFT_CHAIN_SET(bf::Chain("test_meta_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << ip4_set
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher::in(ip4_set)}));
+    BFT_CHAIN_SET(
+        bf::Chain("test_meta_sport", test->hook(), BF_VERDICT_ACCEPT)
+        << ip4_set
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(ip4_set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_sport", test->hook(),

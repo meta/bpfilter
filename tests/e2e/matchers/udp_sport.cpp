@@ -23,9 +23,10 @@ static void udp_sport_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_udp_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_UDP_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345))}));
+                                           bft_port_be(12345))},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_udp_sport", test->hook(),
@@ -61,9 +62,10 @@ static void udp_sport_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_udp_sport", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_UDP_SPORT, BF_MATCHER_EQ,
-                                           bft_port_be(12345), true)}));
+                                           bft_port_be(12345), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_udp_sport", test->hook(),
@@ -104,7 +106,7 @@ static void udp_sport_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_udp_sport", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     bft_assert_prog_run(
         "test_udp_sport", test->hook(),
@@ -142,9 +144,10 @@ static void udp_sport_range(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_udp_sport", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_UDP_SPORT, BF_MATCHER_RANGE,
-                                 bft_port_range(1000, 2000))}));
+                                 bft_port_range(1000, 2000))},
+                    bf_counter()));
 
     // UDP sport=1000 is at range minimum -> DROP
     bft_assert_prog_run(

@@ -41,10 +41,9 @@ private:
     std::vector<Matcher> _matchers;
 
 public:
-    Rule(bf_verdict verdict,
+    Rule(bf_verdict verdict, std::vector<Matcher> matchers = {},
          std::optional<struct bf_counter> counters = std::nullopt,
-         uint8_t log = 0, std::vector<Matcher> matchers = {},
-         std::optional<uint64_t> logRateNs = std::nullopt):
+         uint8_t log = 0, std::optional<uint64_t> logRateNs = std::nullopt):
         _verdict {verdict},
         _counters {counters},
         _log {log},

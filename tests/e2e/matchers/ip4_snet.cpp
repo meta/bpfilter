@@ -24,11 +24,11 @@ static void ip4_snet_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     // 192.0.2.0/24
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(24, 192, 0, 2, 0))}));
+    BFT_CHAIN_SET(bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
+                                           bft_ip4_lpm_key(24, 192, 0, 2, 0))},
+                              bf_counter()));
 
     // saddr=192.0.2.1 is in 192.0.2.0/24 -> DROP
     bft_assert_prog_run(
@@ -67,9 +67,10 @@ static void ip4_snet_eq(void **state)
     // Try with negation: 192.0.2.0/24
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)}));
+                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)},
+                    bf_counter()));
 
     // saddr=192.0.2.1 is in subnet, but negated -> ACCEPT
     bft_assert_prog_run(
@@ -91,11 +92,11 @@ static void ip4_snet_eq(void **state)
 
     // /32 (single host): mask=0xffffffff triggers the no-masking code path in
     // bf_cmp_masked_value(), comparing the address directly without AND.
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(32, 192, 0, 2, 1))}));
+    BFT_CHAIN_SET(bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
+                                           bft_ip4_lpm_key(32, 192, 0, 2, 1))},
+                              bf_counter()));
 
     // saddr=192.0.2.1 exactly matches the /32 -> DROP
     bft_assert_prog_run(
@@ -118,9 +119,10 @@ static void ip4_snet_eq(void **state)
     // /0 (match all): mask=0 causes both sides to AND to 0, matching every
     // source address.
     BFT_CHAIN_SET(bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                           bft_ip4_lpm_key(0, 0, 0, 0, 0))}));
+                                           bft_ip4_lpm_key(0, 0, 0, 0, 0))},
+                              bf_counter()));
 
     // any saddr matches /0 -> DROP
     bft_assert_prog_run(
@@ -135,9 +137,10 @@ static void ip4_snet_eq(void **state)
     // /24 not eq
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)}));
+                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)},
+                    bf_counter()));
 
     // saddr=192.0.2.1 is in subnet -> not eq does not match -> ACCEPT
     bft_assert_prog_run(
@@ -160,9 +163,10 @@ static void ip4_snet_eq(void **state)
     // /32 not eq: saddr exactly matching the host -> does not match -> ACCEPT
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(32, 192, 0, 2, 1), true)}));
+                                 bft_ip4_lpm_key(32, 192, 0, 2, 1), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_snet", test->hook(),
@@ -185,9 +189,10 @@ static void ip4_snet_eq(void **state)
     // matches.
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_SNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(0, 0, 0, 0, 0), true)}));
+                                 bft_ip4_lpm_key(0, 0, 0, 0, 0), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_snet", test->hook(),
@@ -214,7 +219,7 @@ static void ip4_snet_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_snet", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // saddr=192.0.2.1 matches 192.0.2.0/24 in set -> DROP
     bft_assert_prog_run(

@@ -22,11 +22,11 @@ static void ip4_dnet_eq(void **state)
 {
     auto *test = static_cast<MatcherTest *>(*state);
 
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(24, 192, 0, 2, 0))}));
+    BFT_CHAIN_SET(bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
+                                           bft_ip4_lpm_key(24, 192, 0, 2, 0))},
+                              bf_counter()));
 
     // daddr=192.0.2.100 is in 192.0.2.0/24 -> DROP
     bft_assert_prog_run(
@@ -63,11 +63,11 @@ static void ip4_dnet_eq(void **state)
     bft_assert_counter_eq("test_ip4_dnet", 0, 3, -1);
 
     // /32 (single host): exercises the no-masking code path.
-    BFT_CHAIN_SET(
-        bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(32, 192, 0, 2, 2))}));
+    BFT_CHAIN_SET(bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
+                                           bft_ip4_lpm_key(32, 192, 0, 2, 2))},
+                              bf_counter()));
 
     // daddr=192.0.2.2 exactly matches the /32 -> DROP
     bft_assert_prog_run(
@@ -90,9 +90,10 @@ static void ip4_dnet_eq(void **state)
     // /0 (match all): mask=0 causes all addresses to AND to 0, matching any
     // destination address.
     BFT_CHAIN_SET(bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                           bft_ip4_lpm_key(0, 0, 0, 0, 0))}));
+                                           bft_ip4_lpm_key(0, 0, 0, 0, 0))},
+                              bf_counter()));
 
     // any daddr matches /0 -> DROP
     bft_assert_prog_run(
@@ -107,9 +108,10 @@ static void ip4_dnet_eq(void **state)
     // /24 not eq
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)}));
+                                 bft_ip4_lpm_key(24, 192, 0, 2, 0), true)},
+                    bf_counter()));
 
     // daddr=192.0.2.100 is in subnet -> not eq does not match -> ACCEPT
     bft_assert_prog_run(
@@ -133,9 +135,10 @@ static void ip4_dnet_eq(void **state)
     // ACCEPT
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(32, 192, 0, 2, 2), true)}));
+                                 bft_ip4_lpm_key(32, 192, 0, 2, 2), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_dnet", test->hook(),
@@ -158,9 +161,10 @@ static void ip4_dnet_eq(void **state)
     // matches.
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+        << bf::Rule(BF_VERDICT_DROP,
                     {bf::Matcher(BF_MATCHER_IP4_DNET, BF_MATCHER_EQ,
-                                 bft_ip4_lpm_key(0, 0, 0, 0, 0), true)}));
+                                 bft_ip4_lpm_key(0, 0, 0, 0, 0), true)},
+                    bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_dnet", test->hook(),
@@ -187,7 +191,7 @@ static void ip4_dnet_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_dnet", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // daddr=10.0.1.1 matches 10.0.0.0/16 in set -> DROP
     bft_assert_prog_run(

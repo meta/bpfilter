@@ -26,8 +26,9 @@ static void icmp_code_eq(void **state)
 
     BFT_CHAIN_SET(
         bf::Chain("test_icmp_code", test->hook(), BF_VERDICT_ACCEPT)
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                    {bf::Matcher(BF_MATCHER_ICMP_CODE, BF_MATCHER_EQ, {3})}));
+        << bf::Rule(BF_VERDICT_DROP,
+                    {bf::Matcher(BF_MATCHER_ICMP_CODE, BF_MATCHER_EQ, {3})},
+                    bf_counter()));
 
     // ICMP code=3 should match the rule -> DROP
     bft_assert_prog_run(
@@ -57,9 +58,10 @@ static void icmp_code_eq(void **state)
 
     // Try with negation
     BFT_CHAIN_SET(bf::Chain("test_icmp_code", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_ICMP_CODE, BF_MATCHER_EQ,
-                                           {3}, true)}));
+                                           {3}, true)},
+                              bf_counter()));
 
     // ICMP code=3 should NOT match the rule -> ACCEPT (policy)
     bft_assert_prog_run(
@@ -89,9 +91,10 @@ static void icmp_code_eq(void **state)
     bft_assert_counter_eq("test_icmp_code", 0, 1, -1);
 
     BFT_CHAIN_SET(bf::Chain("test_icmp_code", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_ICMP_CODE, BF_MATCHER_EQ,
-                                           {3}, true)}));
+                                           {3}, true)},
+                              bf_counter()));
 
     // ICMP code=3 should not match -> ACCEPT (policy)
     bft_assert_prog_run(
@@ -134,7 +137,7 @@ static void icmp_code_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_icmp_code", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // ICMP code=3 is in set -> DROP
     bft_assert_prog_run(
@@ -165,8 +168,8 @@ static void icmp_code_in(void **state)
     // Try with negation
     BFT_CHAIN_SET(bf::Chain("test_icmp_code", test->hook(), BF_VERDICT_ACCEPT)
                   << set
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher::in(set, true)}));
+                  << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set, true)},
+                              bf_counter()));
 
     // ICMP code=3 is in set so negation is -> ACCEPT
     bft_assert_prog_run(

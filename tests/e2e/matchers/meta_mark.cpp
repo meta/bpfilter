@@ -23,9 +23,10 @@ static void meta_mark_eq(void **state)
 
     // BPF_PROG_TEST_RUN gives mark=0; match eq 0
     BFT_CHAIN_SET(bf::Chain("test_meta_mark", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_MARK, BF_MATCHER_EQ,
-                                           bft_u32_payload(0))}));
+                                           bft_u32_payload(0))},
+                              bf_counter()));
 
     // mark=0 matches eq 0 -> DROP
     bft_assert_prog_run(
@@ -39,9 +40,10 @@ static void meta_mark_eq(void **state)
 
     // eq 42 should not match since mark is 0
     BFT_CHAIN_SET(bf::Chain("test_meta_mark", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_MARK, BF_MATCHER_EQ,
-                                           bft_u32_payload(42))}));
+                                           bft_u32_payload(42))},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_mark", test->hook(),
@@ -54,9 +56,10 @@ static void meta_mark_eq(void **state)
 
     // not eq 0 should NOT match since mark=0
     BFT_CHAIN_SET(bf::Chain("test_meta_mark", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_MARK, BF_MATCHER_EQ,
-                                           bft_u32_payload(0), true)}));
+                                           bft_u32_payload(0), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_mark", test->hook(),
@@ -69,9 +72,10 @@ static void meta_mark_eq(void **state)
 
     // not eq 42 should match since mark=0 != 42
     BFT_CHAIN_SET(bf::Chain("test_meta_mark", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_META_MARK, BF_MATCHER_EQ,
-                                           bft_u32_payload(42), true)}));
+                                           bft_u32_payload(42), true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_meta_mark", test->hook(),

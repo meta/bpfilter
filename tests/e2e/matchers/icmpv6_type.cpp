@@ -23,10 +23,11 @@ static void icmpv6_type_eq(void **state)
 {
     auto *test = static_cast<MatcherTest *>(*state);
 
-    BFT_CHAIN_SET(bf::Chain("test_icmpv6_type", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher(BF_MATCHER_ICMPV6_TYPE,
-                                           BF_MATCHER_EQ, {128})}));
+    BFT_CHAIN_SET(
+        bf::Chain("test_icmpv6_type", test->hook(), BF_VERDICT_ACCEPT)
+        << bf::Rule(BF_VERDICT_DROP,
+                    {bf::Matcher(BF_MATCHER_ICMPV6_TYPE, BF_MATCHER_EQ, {128})},
+                    bf_counter()));
 
     // ICMPv6 type=128 (echo request) should match -> DROP
     bft_assert_prog_run(
@@ -56,9 +57,10 @@ static void icmpv6_type_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_icmpv6_type", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_ICMPV6_TYPE,
-                                           BF_MATCHER_EQ, {128}, true)}));
+                                           BF_MATCHER_EQ, {128}, true)},
+                              bf_counter()));
 
     // ICMPv6 type=128 should not match -> ACCEPT
     bft_assert_prog_run(
@@ -101,7 +103,7 @@ static void icmpv6_type_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_icmpv6_type", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // ICMPv6 type=128 is in set -> DROP
     bft_assert_prog_run(

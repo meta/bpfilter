@@ -22,9 +22,10 @@ static void ip4_saddr_eq(void **state)
     auto *test = static_cast<MatcherTest *>(*state);
 
     BFT_CHAIN_SET(bf::Chain("test_ip4_saddr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_SADDR, BF_MATCHER_EQ,
-                                           {192, 0, 2, 1})}));
+                                           {192, 0, 2, 1})},
+                              bf_counter()));
 
     // saddr=192.0.2.1 should match -> DROP
     bft_assert_prog_run(
@@ -46,9 +47,10 @@ static void ip4_saddr_eq(void **state)
 
     // Negation
     BFT_CHAIN_SET(bf::Chain("test_ip4_saddr", test->hook(), BF_VERDICT_ACCEPT)
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
+                  << bf::Rule(BF_VERDICT_DROP,
                               {bf::Matcher(BF_MATCHER_IP4_SADDR, BF_MATCHER_EQ,
-                                           {192, 0, 2, 1}, true)}));
+                                           {192, 0, 2, 1}, true)},
+                              bf_counter()));
 
     // saddr=192.0.2.1 should not match -> ACCEPT
     bft_assert_prog_run(
@@ -85,7 +87,7 @@ static void ip4_saddr_in(void **state)
     BFT_CHAIN_SET(
         bf::Chain("test_ip4_saddr", test->hook(), BF_VERDICT_ACCEPT)
         << set
-        << bf::Rule(BF_VERDICT_DROP, bf_counter(), {}, {bf::Matcher::in(set)}));
+        << bf::Rule(BF_VERDICT_DROP, {bf::Matcher::in(set)}, bf_counter()));
 
     // saddr=192.0.2.1 is in set -> DROP
     bft_assert_prog_run(
@@ -117,8 +119,9 @@ static void ip4_saddr_in(void **state)
     auto empty_set = bf::Set({BF_MATCHER_IP4_SADDR});
     BFT_CHAIN_SET(bf::Chain("test_ip4_saddr", test->hook(), BF_VERDICT_ACCEPT)
                   << empty_set
-                  << bf::Rule(BF_VERDICT_DROP, bf_counter(), {},
-                              {bf::Matcher::in(empty_set, true)}));
+                  << bf::Rule(BF_VERDICT_DROP,
+                              {bf::Matcher::in(empty_set, true)},
+                              bf_counter()));
 
     bft_assert_prog_run(
         "test_ip4_saddr", test->hook(),
