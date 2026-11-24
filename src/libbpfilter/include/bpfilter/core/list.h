@@ -97,14 +97,20 @@ typedef struct bf_list
  * Use a temporary variable to store the next node (if any). Hence, a node
  * can be removed from the list during iteration.
  *
+ * @note The macro declares `node` without parentheses. C++ compilers warn
+ * about `(node)` in a declaration (-Wparentheses), and clang-tidy warns about
+ * `node` without parentheses (bugprone-macro-parentheses). No declaration
+ * satisfies both, so the macro silences clang-tidy.
+ *
  * @param list Pointer to the list to iterate over. Must be non-NULL.
  * @param node Name of the variable containing the current node. This variable
  *        will be created automatically and the caller will be able to use it to
  * 	      access the node.
  */
 #define bf_list_foreach(list, node)                                            \
-    for (bf_list_node * (node) = (list)->head,                                 \
-                        *__next = (list)->head ? (list)->head->next : NULL;    \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses): see above */                \
+    for (bf_list_node *node = (list)->head,                                    \
+                      *__next = (list)->head ? (list)->head->next : NULL;      \
          (node); (node) = __next, __next = __next ? __next->next : NULL)
 
 /**
@@ -113,14 +119,20 @@ typedef struct bf_list
  * Use a temporary variable to store the next node (if any). Hence, a node
  * can be removed from the list during iteration.
  *
+ * @note The macro declares `node` without parentheses. C++ compilers warn
+ * about `(node)` in a declaration (-Wparentheses), and clang-tidy warns about
+ * `node` without parentheses (bugprone-macro-parentheses). No declaration
+ * satisfies both, so the macro silences clang-tidy.
+ *
  * @param list Pointer to the list to iterate over. Must be non-NULL.
  * @param node Name of the variable containing the current node. This variable
  * 	      will be created automatically and the caller will be able to use it to
  * 	      access the node.
  */
 #define bf_list_foreach_rev(list, node)                                        \
-    for (bf_list_node * (node) = (list)->tail,                                 \
-                        *__next = (list)->tail ? (list)->tail->prev : NULL;    \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses): see above */                \
+    for (bf_list_node *node = (list)->tail,                                    \
+                      *__next = (list)->tail ? (list)->tail->prev : NULL;      \
          (node); (node) = __next, __next = __next ? __next->prev : NULL)
 
 /**
