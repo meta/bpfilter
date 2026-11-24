@@ -110,10 +110,10 @@ size_t IPv4::size()
 size_t IPv4::write(uint8_t *buf, uint8_t proto, size_t payload) const
 {
     struct iphdr hdr = {};
-    hdr.ihl = kIPv4IHL;
+    hdr.ihl = ihl.value_or(kIPv4IHL);
     hdr.version = 4;
     hdr.tos = tos;
-    hdr.tot_len = htons(sizeof(hdr) + payload);
+    hdr.tot_len = htons(tot_len.value_or(sizeof(hdr) + payload));
     hdr.id = htons(id);
     hdr.ttl = ttl;
     hdr.protocol = proto;
@@ -137,7 +137,7 @@ size_t IPv6::write(uint8_t *buf, uint8_t proto, size_t payload) const
     hdr.priority = traffic_class >> 4;
     hdr.flow_lbl[0] =
         static_cast<uint8_t>((traffic_class & kTrafficClassLowMask) << 4);
-    hdr.payload_len = htons(payload);
+    hdr.payload_len = htons(payload_len.value_or(payload));
     hdr.nexthdr = proto;
     hdr.hop_limit = hop_limit;
     std::memcpy(&hdr.saddr, saddr.addr.data(), saddr.addr.size());
