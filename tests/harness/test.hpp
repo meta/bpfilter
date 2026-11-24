@@ -7,17 +7,20 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <iostream>
 #include <iterator>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "Packet.hpp"
-#include "bpfilter/flavor.h"
 
 extern "C" {
 // clang-format off
@@ -35,6 +38,7 @@ extern "C" {
 #include <bpfilter/bpf.h>
 #include <bpfilter/bpfilter.h>
 #include <bpfilter/ctx.h>
+#include <bpfilter/flavor.h>
 #include <bpfilter/hook.h>
 #include <bpfilter/logger.h>
 #include <bpfilter/matcher.h>
@@ -43,6 +47,148 @@ extern "C" {
 
 #include "test.h"
 }
+
+/* Declared, not included: Chain.hpp includes <linux/in6.h> through
+ * <bpfilter/runtime.h>, which must come after <arpa/inet.h>. Otherwise
+ * <linux/in.h> conflicts with <netinet/in.h> in test.cpp. */
+namespace bf
+{
+class Chain;
+} // namespace bf
+
+namespace bft
+{
+
+/**
+ * @brief Chain counter that does not belong to a rule.
+ */
+enum class CounterType : uint8_t
+{
+    /// Packets that reached the chain's policy.
+    Policy,
+    /// Packets that the program failed to process.
+    Error,
+    /// Packets that the parser dropped.
+    ParserDrop,
+};
+
+// Allow `bft::ParserDrop` instead of `bft::CounterType::ParserDrop`
+using enum CounterType;
+
+/// Index of a rule, or a counter that does not belong to a rule.
+using CounterId = std::variant<int, CounterType>;
+
+/**
+ * @brief Expected value of a chain counter after a packet.
+ *
+ * The constructor allows positional braced lists, such as `{0, 1}`.
+ */
+struct Counter
+{
+    Counter(CounterId id, uint64_t npkt,
+            std::optional<uint64_t> nbytes = std::nullopt):
+        id {id},
+        npkt {npkt},
+        nbytes {nbytes}
+    {}
+
+    CounterId id;
+
+    /// Expected counter value in packets.
+    uint64_t npkt;
+
+    /** Expected counter value in bytes. If unset, calculated using the packet
+     * size. */
+    std::optional<uint64_t> nbytes;
+};
+
+/**
+ * @brief Expected values of the counters of a chain after a packet.
+ *
+ * Each listed counter must exist. A braced list, such as `{{0, 1}}`, is exact:
+ * every counter that is not listed must be 0.
+ */
+struct Counters: std::vector<Counter>
+{
+    using std::vector<Counter>::vector;
+
+    /// If set, every counter that is not listed must be 0.
+    bool exact = true;
+};
+
+/**
+ * @brief Expected values of the listed counters of a chain after a packet.
+ * The other counters are not compared.
+ */
+struct ListedCounters: Counters
+{
+    ListedCounters(std::initializer_list<Counter> counters = {}):
+        Counters(counters)
+    {
+        exact = false;
+    }
+};
+
+/**
+ * @brief Packet to run through a program, with the expected verdict and
+ * counters.
+ *
+ * The constructor allows positional braced lists, such as
+ * `{pkt, BF_VERDICT_ACCEPT, {{0, 1}}}`.
+ */
+struct PacketRun
+{
+    PacketRun(Packet pkt, enum bf_verdict verdict,
+              Counters counters = ListedCounters {}):
+        pkt {std::move(pkt)},
+        verdict {verdict},
+        counters {std::move(counters)}
+    {}
+
+    Packet pkt;
+
+    /** Expected verdict: `BF_VERDICT_ACCEPT`, `BF_VERDICT_DROP`, or
+     * `BF_VERDICT_NEXT`. */
+    enum bf_verdict verdict;
+
+    /// Counter values after this packet. Not compared by default.
+    Counters counters;
+};
+
+/**
+ * @brief Run each packet through a new copy of a chain, and assert the
+ * verdict and the counter values.
+ *
+ * For each packet, the chain is set, the packet runs through its program, and
+ * the chain is flushed. Only that packet goes through the chain, so the
+ * counter values come from that packet alone. The chain is set without hook
+ * options, so it is not attached.
+ *
+ * Every packet runs, even after a mismatch: each mismatch is printed with the
+ * packet's index in `packets` and the hook, then the test fails.
+ *
+ * @param chain Chain to set. The chain's hook defines the input conventions,
+ *        see `bft_assert_prog_run`.
+ * @param packets Packets to run, in order.
+ */
+void assert_prog_run(const bf::Chain &chain,
+                     const std::vector<PacketRun> &packets);
+
+/**
+ * @brief Run `assert_prog_run` once for each hook in `hooks`.
+ *
+ * Each run uses a copy of `chain` that has the hook of the run. The hook of
+ * `chain` is not used.
+ * The test fails after all the hooks ran.
+ *
+ * @param hooks Hooks to set the chain on, in order.
+ * @param chain Chain to set.
+ * @param packets Packets to run on each hook, in order.
+ */
+void assert_prog_run(const std::vector<enum bf_hook> &hooks, bf::Chain chain,
+                     const std::vector<PacketRun> &packets);
+
+} // namespace bft
 
 /** @brief Per-test setup: flush the ruleset so each test starts clean. */
 int bft_matcher_test_setup(void **state);

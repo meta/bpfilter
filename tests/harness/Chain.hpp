@@ -53,6 +53,16 @@ public:
         return _name;
     }
 
+    [[nodiscard]] bf_hook hook() const
+    {
+        return _hook;
+    }
+
+    void set_hook(bf_hook hook)
+    {
+        _hook = hook;
+    }
+
     Chain &operator<<(Rule &&rule)
     {
         _rules.push_back(std::move(rule));

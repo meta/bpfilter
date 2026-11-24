@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -79,6 +80,12 @@ struct IPv4
     uint16_t id = kDefaultId;
     uint8_t tos = 0;
 
+    /// IHL value override. If unset, use the header size (5 words).
+    std::optional<uint8_t> ihl = std::nullopt;
+
+    /// Total Length value override. If unset, use the actual total length.
+    std::optional<uint16_t> tot_len = std::nullopt;
+
     static constexpr uint16_t ether_type = 0x0800;
     static constexpr uint8_t ip_proto = 4; // IPPROTO_IPIP
 
@@ -112,6 +119,9 @@ struct IPv6
     IPv6Addr daddr = kDefaultDst;
     uint8_t hop_limit = kDefaultHopLimit;
     uint8_t traffic_class = 0;
+
+    /// Payload length value override. If unset, use the actual payload length.
+    std::optional<uint16_t> payload_len = std::nullopt;
 
     static constexpr uint16_t ether_type = 0x86dd;
     static constexpr uint8_t ip_proto = 41; // IPPROTO_IPV6
