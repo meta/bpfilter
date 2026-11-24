@@ -4,6 +4,7 @@
  */
 
 #include <linux/bpf.h>
+#include <linux/if_ether.h>
 
 #include <benchmark/benchmark.h>
 #include <cerrno>
@@ -87,14 +88,14 @@ void chain_policy_c(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("chain policy, with counter");
 }
 
-BENCHMARK(chain_policy_c);
+BENCHMARK(chain_policy_c)->UseManualTime();
 
 void xdp__prologue(::benchmark::State &state)
 {
@@ -112,14 +113,14 @@ void xdp__prologue(::benchmark::State &state)
         if (stats.retval != XDP_PASS)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("XDP prologue, accept policy");
 }
 
-BENCHMARK(xdp__prologue);
+BENCHMARK(xdp__prologue)->UseManualTime();
 
 void tc__prologue(::benchmark::State &state)
 {
@@ -138,14 +139,14 @@ void tc__prologue(::benchmark::State &state)
         if (stats.retval != 0)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("TC prologue, accept policy");
 }
 
-BENCHMARK(tc__prologue);
+BENCHMARK(tc__prologue)->UseManualTime();
 
 void cgroup_skb__prologue(::benchmark::State &state)
 {
@@ -163,14 +164,14 @@ void cgroup_skb__prologue(::benchmark::State &state)
         if (stats.retval != ::bft::CGROUP_SKB_ACCEPT)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("CGroup skb prologue, accept policy");
 }
 
-BENCHMARK(cgroup_skb__prologue);
+BENCHMARK(cgroup_skb__prologue)->UseManualTime();
 
 void netfilter__prologue(::benchmark::State &state)
 {
@@ -183,20 +184,24 @@ void netfilter__prologue(::benchmark::State &state)
 
     auto prog = bft::Program(chain.name());
 
+    /* Without a context, BPF_PROG_TEST_RUN runs a Netfilter program as an
+     * IPv4 NF_INET_LOCAL_OUT hook: the data starts at the IPv4 header. */
+    const auto pkt = std::span(::bft::pkt_local_ip4_tcp).subspan(ETH_HLEN);
+
     // NF_ACCEPT = 1
     while (state.KeepRunningBatch(::bft::progRunRepeat)) {
-        auto stats = prog.run(::bft::pkt_local_ip6_tcp);
+        auto stats = prog.run(pkt);
         if (stats.retval != 1)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("Netfilter prologue, accept policy");
 }
 
-BENCHMARK(netfilter__prologue);
+BENCHMARK(netfilter__prologue)->UseManualTime();
 
 void single_rule__ip4_saddr(::benchmark::State &state)
 {
@@ -219,14 +224,14 @@ void single_rule__ip4_saddr(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, ip4.saddr");
 }
 
-BENCHMARK(single_rule__ip4_saddr);
+BENCHMARK(single_rule__ip4_saddr)->UseManualTime();
 
 void multiple_rules__ip4_saddr(::benchmark::State &state)
 {
@@ -259,14 +264,18 @@ void multiple_rules__ip4_saddr(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel(std::format("{} rules, ip4.saddr", nrules));
 }
 
-BENCHMARK(multiple_rules__ip4_saddr)->Arg(8)->Arg(32)->Arg(128);
+BENCHMARK(multiple_rules__ip4_saddr)
+    ->Arg(8)
+    ->Arg(32)
+    ->Arg(128)
+    ->UseManualTime();
 
 void single_rule__ip4_saddr__x_elem_set(::benchmark::State &state)
 {
@@ -299,7 +308,7 @@ void single_rule__ip4_saddr__x_elem_set(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
@@ -310,7 +319,8 @@ void single_rule__ip4_saddr__x_elem_set(::benchmark::State &state)
 BENCHMARK(single_rule__ip4_saddr__x_elem_set)
     ->Arg(1 << 3)
     ->Arg(1 << 7)
-    ->Arg(1 << 15);
+    ->Arg(1 << 15)
+    ->UseManualTime();
 
 void chain_set__ip4_saddr__x_elem_set(::benchmark::State &state)
 {
@@ -436,14 +446,14 @@ void single_rule__ip4_saddr_c(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, ip4.saddr, counter");
 }
 
-BENCHMARK(single_rule__ip4_saddr_c);
+BENCHMARK(single_rule__ip4_saddr_c)->UseManualTime();
 
 void single_rule__ip4_saddr_l(::benchmark::State &state)
 {
@@ -466,7 +476,7 @@ void single_rule__ip4_saddr_l(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
@@ -474,7 +484,7 @@ void single_rule__ip4_saddr_l(::benchmark::State &state)
     state.SetLabel("1 rule, ip4.saddr, log link");
 }
 
-BENCHMARK(single_rule__ip4_saddr_l);
+BENCHMARK(single_rule__ip4_saddr_l)->UseManualTime();
 
 void single_rule__ip6_saddr(::benchmark::State &state)
 {
@@ -498,14 +508,14 @@ void single_rule__ip6_saddr(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, ip6.saddr");
 }
 
-BENCHMARK(single_rule__ip6_saddr);
+BENCHMARK(single_rule__ip6_saddr)->UseManualTime();
 
 void multiple_rules__ip6_saddr(::benchmark::State &state)
 {
@@ -539,14 +549,18 @@ void multiple_rules__ip6_saddr(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel(std::format("{} rules, ip6.saddr", nrules));
 }
 
-BENCHMARK(multiple_rules__ip6_saddr)->Arg(8)->Arg(32)->Arg(128);
+BENCHMARK(multiple_rules__ip6_saddr)
+    ->Arg(8)
+    ->Arg(32)
+    ->Arg(128)
+    ->UseManualTime();
 
 void single_rule__ip6_saddr__x_elem_set(::benchmark::State &state)
 {
@@ -580,7 +594,7 @@ void single_rule__ip6_saddr__x_elem_set(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
@@ -591,7 +605,8 @@ void single_rule__ip6_saddr__x_elem_set(::benchmark::State &state)
 BENCHMARK(single_rule__ip6_saddr__x_elem_set)
     ->Arg(1 << 3)
     ->Arg(1 << 7)
-    ->Arg(1 << 15);
+    ->Arg(1 << 15)
+    ->UseManualTime();
 
 void single_rule__ip6_saddr_c(::benchmark::State &state)
 {
@@ -615,14 +630,14 @@ void single_rule__ip6_saddr_c(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, ip6.saddr, counter");
 }
 
-BENCHMARK(single_rule__ip6_saddr_c);
+BENCHMARK(single_rule__ip6_saddr_c)->UseManualTime();
 
 void single_rule__ip6_saddr_l(::benchmark::State &state)
 {
@@ -646,7 +661,7 @@ void single_rule__ip6_saddr_l(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
@@ -654,7 +669,7 @@ void single_rule__ip6_saddr_l(::benchmark::State &state)
     state.SetLabel("1 rule, ip6.saddr, log link");
 }
 
-BENCHMARK(single_rule__ip6_saddr_l);
+BENCHMARK(single_rule__ip6_saddr_l)->UseManualTime();
 
 void single_rule__ip6_nexthdr(::benchmark::State &state)
 {
@@ -677,14 +692,14 @@ void single_rule__ip6_nexthdr(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, ip6.nexthdr");
 }
 
-BENCHMARK(single_rule__ip6_nexthdr);
+BENCHMARK(single_rule__ip6_nexthdr)->UseManualTime();
 
 void single_rule__meta_sport_eq(::benchmark::State &state)
 {
@@ -707,14 +722,14 @@ void single_rule__meta_sport_eq(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, meta.sport eq");
 }
 
-BENCHMARK(single_rule__meta_sport_eq);
+BENCHMARK(single_rule__meta_sport_eq)->UseManualTime();
 
 void single_rule__meta_sport_range(::benchmark::State &state)
 {
@@ -737,14 +752,14 @@ void single_rule__meta_sport_range(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, meta.sport range");
 }
 
-BENCHMARK(single_rule__meta_sport_range);
+BENCHMARK(single_rule__meta_sport_range)->UseManualTime();
 
 void single_rule__tcp_sport(::benchmark::State &state)
 {
@@ -767,14 +782,14 @@ void single_rule__tcp_sport(::benchmark::State &state)
         if (stats.retval != XDP_DROP)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, tcp.sport");
 }
 
-BENCHMARK(single_rule__tcp_sport);
+BENCHMARK(single_rule__tcp_sport)->UseManualTime();
 
 void single_rule__meta_flow_hash(::benchmark::State &state)
 {
@@ -801,14 +816,14 @@ void single_rule__meta_flow_hash(::benchmark::State &state)
         if (stats.retval != 2)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, meta.flow_hash");
 }
 
-BENCHMARK(single_rule__meta_flow_hash);
+BENCHMARK(single_rule__meta_flow_hash)->UseManualTime();
 
 void single_rule__meta_flow_probability(::benchmark::State &state)
 {
@@ -839,14 +854,14 @@ void single_rule__meta_flow_probability(::benchmark::State &state)
         if (stats.retval != 2)
             state.SkipWithError("benchmark run failed");
 
-        state.SetIterationTime((double)stats.duration * stats.repeat);
+        state.SetIterationTime(stats.seconds());
     }
 
     state.counters["nInsn"] = prog.nInsn();
     state.SetLabel("1 rule, meta.flow_probability");
 }
 
-BENCHMARK(single_rule__meta_flow_probability);
+BENCHMARK(single_rule__meta_flow_probability)->UseManualTime();
 
 } // namespace
 

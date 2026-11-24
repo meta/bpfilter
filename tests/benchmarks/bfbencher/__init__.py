@@ -204,9 +204,11 @@ class Result:
 
     @classmethod
     def from_json(cls, commit: git.Commit, json: dict) -> "Result":
+        # Benchmarks that use manual time get a "/manual_time" suffix: remove
+        # it to compare them with results from before they used manual time.
         return Result(
             commit,
-            json["name"],
+            json["name"].removesuffix("/manual_time"),
             json["iterations"],
             json["real_time"] * ureg(json["time_unit"]),
             json["cpu_time"] * ureg(json["time_unit"]),
