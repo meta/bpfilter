@@ -39,10 +39,37 @@ int bf_redirect_dir_from_str(const char *str, enum bf_redirect_dir *dir)
     return -EINVAL;
 }
 
+static const char *_bf_reject_type_strs[] = {
+    [BF_REJECT_PORT_UNREACH] = "port-unreachable",
+};
+static_assert_enum_mapping(_bf_reject_type_strs, _BF_REJECT_TYPE_MAX);
+
+const char *bf_reject_type_to_str(enum bf_reject_type type)
+{
+    if (type < 0 || type >= _BF_REJECT_TYPE_MAX)
+        return "<bf_reject_type unknown>";
+
+    return _bf_reject_type_strs[type];
+}
+
+int bf_reject_type_from_str(const char *str, enum bf_reject_type *type)
+{
+    assert(type);
+
+    for (size_t i = 0; i < _BF_REJECT_TYPE_MAX; ++i) {
+        if (bf_streq(_bf_reject_type_strs[i], str)) {
+            *type = i;
+            return 0;
+        }
+    }
+
+    return -EINVAL;
+}
+
 static const char *_bf_verdict_strs[] = {
     [BF_VERDICT_ACCEPT] = "ACCEPT",     [BF_VERDICT_DROP] = "DROP",
     [BF_VERDICT_REDIRECT] = "REDIRECT", [BF_VERDICT_CONTINUE] = "CONTINUE",
-    [BF_VERDICT_NEXT] = "NEXT",
+    [BF_VERDICT_NEXT] = "NEXT",         [BF_VERDICT_REJECT] = "REJECT",
 };
 static_assert_enum_mapping(_bf_verdict_strs, _BF_VERDICT_MAX);
 
